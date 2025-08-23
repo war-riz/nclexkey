@@ -26,6 +26,7 @@ import { nigerianBankAPI, paymentAPI, paymentConfig } from '@/lib/api'
 export default function NigerianBankPaymentForm({ 
   course, 
   amount, 
+  currency = 'NGN',
   onSuccess, 
   onError,
   className = "",
@@ -148,7 +149,17 @@ export default function NigerianBankPaymentForm({
     setError(null)
 
     try {
-      const result = await paymentAPI.initializePayment(course.id, 'paystack', paymentType, userData)
+      // For student registration, use a special course ID
+      const courseId = paymentType === 'student_registration' ? 'student-registration' : course.id
+      
+      const result = await paymentAPI.initializePayment(
+        courseId, 
+        'paystack', 
+        paymentType, 
+        userData, 
+        amount, 
+        currency
+      )
       
       if (result.success) {
         // Redirect to Paystack payment page
@@ -168,6 +179,7 @@ export default function NigerianBankPaymentForm({
         setError(result.error?.message || 'Failed to initialize payment')
       }
     } catch (error) {
+      console.error('Payment initialization error:', error)
       setError('Failed to process payment')
     } finally {
       setIsProcessing(false)
@@ -233,7 +245,7 @@ export default function NigerianBankPaymentForm({
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
-      currency: 'NGN',
+      currency: currency,
     }).format(amount)
   }
 

@@ -1,3 +1,5 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { PlayCircle, Users, Scale, BookOpen, Brain, Heart, Shield, Zap, Star, Target, Award, GraduationCap } from "lucide-react"
 import Link from "next/link"

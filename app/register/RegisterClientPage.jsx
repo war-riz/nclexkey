@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/contexts/AuthContext"
@@ -14,8 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, User, Mail, Phone, UserCheck, Lock, Eye, EyeOff, GraduationCap, BookOpen, CreditCard, Bank, Smartphone } from "lucide-react"
 import RateLimitMessage from "@/components/RateLimitMessage"
-import NigerianBankPaymentForm from "@/components/nigerian-bank-payment-form"
-import TestPaymentButton from "@/components/test-payment-button"
+import PaystackPaymentForm from "@/components/paystack-payment-form"
 
 export default function RegisterClientPage() {
   const [formData, setFormData] = useState({
@@ -37,8 +36,35 @@ export default function RegisterClientPage() {
   const { register } = useAuth()
   const { toast } = useToast()
 
-  // Student registration fee (in NGN)
-  const STUDENT_REGISTRATION_FEE = 5000 // 5,000 NGN
+  // Get selected course from localStorage or use default
+  const [selectedCourse, setSelectedCourse] = useState(null)
+  
+  useEffect(() => {
+    const storedCourse = localStorage.getItem('selectedCourse')
+    if (storedCourse) {
+      try {
+        setSelectedCourse(JSON.parse(storedCourse))
+      } catch (error) {
+        console.error('Error parsing stored course:', error)
+      }
+    }
+  }, [])
+
+  // Student registration fee based on selected course
+  const getRegistrationFee = () => {
+    if (selectedCourse) {
+      return selectedCourse.price
+    }
+    // Default fee if no course selected
+    return 30000 // 30,000 NGN for Nigeria
+  }
+
+  const getRegistrationCurrency = () => {
+    if (selectedCourse) {
+      return selectedCourse.currency
+    }
+    return 'NGN'
+  }
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -330,43 +356,53 @@ export default function RegisterClientPage() {
               <div className="border rounded-lg p-4 bg-blue-50">
                 <div className="flex items-center gap-2 mb-4">
                   <CreditCard className="h-5 w-5 text-blue-600" />
-                  <h3 className="font-semibold text-blue-900">Student Registration Payment</h3>
+                  <h3 className="font-semibold text-blue-900">Course Enrollment Payment</h3>
                 </div>
+                
+                {selectedCourse && (
+                  <div className="mb-4 p-3 bg-white rounded-lg border">
+                    <h4 className="font-semibold text-gray-800 mb-2">
+                      Selected Program: {selectedCourse.region} - {selectedCourse.category}
+                      {selectedCourse.subCategory && ` (${selectedCourse.subCategory.split("WITH ")[1]})`}
+                    </h4>
+                    <p className="text-lg font-bold text-blue-600">
+                      {getRegistrationCurrency() === 'NGN' ? '₦' : getRegistrationCurrency() === 'USD' ? '$' : '£'}
+                      {getRegistrationFee().toLocaleString()} {getRegistrationCurrency()} {selectedCourse.per}
+                    </p>
+                  </div>
+                )}
                 
                 {!paymentSuccess ? (
                   <div>
                     <p className="text-sm text-gray-600 mb-4">
-                      Student registration requires a one-time payment of <strong>₦{STUDENT_REGISTRATION_FEE.toLocaleString()}</strong> 
+                      Course enrollment requires a one-time payment of{' '}
+                      <strong>
+                        {getRegistrationCurrency() === 'NGN' ? '₦' : getRegistrationCurrency() === 'USD' ? '$' : '£'}
+                        {getRegistrationFee().toLocaleString()} {getRegistrationCurrency()}
+                      </strong>{' '}
                       to access all course materials and features.
                     </p>
                     
-                                         <div className="space-y-4">
-                                            <NigerianBankPaymentForm
-                       course={{
-                         id: 'student-registration',
-                         title: 'Student Registration',
-                         price: STUDENT_REGISTRATION_FEE
-                       }}
-                       amount={STUDENT_REGISTRATION_FEE}
-                       onSuccess={handlePaymentSuccess}
-                       onError={handlePaymentError}
-                       className="mb-4"
-                       paymentType="student_registration"
-                       userData={{
-                         email: formData.email,
-                         full_name: formData.fullName,
-                         phone_number: formData.phoneNumber
-                       }}
-                     />
-                       
-                       <div className="text-center">
-                         <p className="text-xs text-gray-500 mb-2">For testing purposes:</p>
-                         <TestPaymentButton
-                           onSuccess={handlePaymentSuccess}
-                           onError={handlePaymentError}
-                         />
-                       </div>
-                     </div>
+                                        <div className="space-y-4">
+                      <PaystackPaymentForm
+                        course={{
+                          id: selectedCourse?.id || 'student-registration',
+                          title: selectedCourse ? `${selectedCourse.region} - ${selectedCourse.category}` : 'Student Registration',
+                          price: getRegistrationFee()
+                        }}
+                        amount={getRegistrationFee()}
+                        currency={getRegistrationCurrency()}
+                        onSuccess={handlePaymentSuccess}
+                        onError={handlePaymentError}
+                        className="mb-4"
+                        paymentType="course_enrollment"
+                        userData={{
+                          email: formData.email,
+                          full_name: formData.fullName,
+                          phone_number: formData.phoneNumber
+                        }}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <Alert className="border-green-200 bg-green-50">

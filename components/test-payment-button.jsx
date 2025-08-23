@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 
-export default function TestPaymentButton({ onSuccess, onError }) {
+export default function TestPaymentButton({ onSuccess, onError, amount = 30000, currency = 'NGN' }) {
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
@@ -17,6 +17,10 @@ export default function TestPaymentButton({ onSuccess, onError }) {
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          amount: amount,
+          currency: currency
+        })
       })
       
       const data = await response.json()
@@ -24,7 +28,7 @@ export default function TestPaymentButton({ onSuccess, onError }) {
       if (data.success) {
         toast({
           title: "Test Payment Successful!",
-          description: `Reference: ${data.reference}`,
+          description: `Reference: ${data.reference} - Amount: ${currency} ${amount.toLocaleString()}`,
           variant: "default",
         })
         
@@ -61,6 +65,7 @@ export default function TestPaymentButton({ onSuccess, onError }) {
     </Button>
   )
 }
+
 
 
 
