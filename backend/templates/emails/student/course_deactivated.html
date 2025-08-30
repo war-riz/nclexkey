@@ -1,0 +1,46 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Course Update - NCLEX Virtual School{% endblock %}
+
+{% block header %}Important Course Update{% endblock %}
+
+{% block content %}
+<h2>Hello {{ user.full_name }},</h2>
+
+<p>We need to inform you about an important update regarding your enrolled course:</p>
+
+<div class="alert alert-danger">
+    <strong>Course:</strong> {{ course.title }}<br>
+    <strong>Status:</strong> Temporarily Deactivated<br>
+    <strong>Date:</strong> {{ deactivated_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>What This Means for You:</h3>
+<ul>
+    <li>Your course access has been temporarily suspended</li>
+    <li>Your progress and completion data are safely preserved</li>
+    <li>You will not be charged any additional fees</li>
+    <li>Your enrollment remains valid for when the course is reactivated</li>
+</ul>
+
+<h3>Why Was This Course Deactivated?</h3>
+<p>This course was temporarily deactivated for administrative review to ensure it meets our quality standards and platform guidelines.</p>
+
+<h3>What Happens Next?</h3>
+<ul>
+    <li>Our team is working to resolve any issues with the course</li>
+    <li>We will notify you immediately when the course is reactivated</li>
+    <li>Your access will be automatically restored</li>
+    <li>All your progress will be exactly where you left off</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ alternative_courses_url }}" class="button">Browse Other Courses</a>
+</div>
+
+<p>We apologize for any inconvenience this may cause. If you have any questions or concerns, please don't hesitate to contact our support team.</p>
+
+<p>Thank you for your understanding and continued trust in NCLEX Virtual School.</p>
+
+<p>Best regards,<br>The NCLEX Virtual School Team</p>
+{% endblock %}

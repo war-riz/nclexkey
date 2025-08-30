@@ -1,0 +1,52 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Course Pricing Update - NCLEX Virtual School{% endblock %}
+
+{% block header %}Course Pricing Information{% endblock %}
+
+{% block content %}
+<h2>Hello {{ user.full_name }},</h2>
+
+<p>We want to inform you about a pricing update for a course you're enrolled in.</p>
+
+<div class="alert">
+    <strong>Course:</strong> {{ course.title }}<br>
+    <strong>Previous Price:</strong> {{ course.currency }} {{ old_price }}<br>
+    <strong>New Price:</strong> {{ course.currency }} {{ new_price }}<br>
+    <strong>Price Increase:</strong> {{ course.currency }} {{ price_increase }}<br>
+    <strong>Updated:</strong> {{ updated_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>Important: Your Access is NOT Affected</h3>
+<ul>
+    <li>You already have full access to this course</li>
+    <li>No additional payment is required from you</li>
+    <li>Your enrollment and progress remain unchanged</li>
+    <li>You can continue learning at your own pace</li>
+</ul>
+
+<h3>About This Update:</h3>
+<p>Course pricing may be adjusted to reflect:</p>
+<ul>
+    <li>Enhanced course content and materials</li>
+    <li>Additional features and resources</li>
+    <li>Market value alignment</li>
+    <li>Platform sustainability</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ course_url }}" class="button">Continue Learning</a>
+</div>
+
+<p>We're committed to providing you with the best learning experience, and this pricing adjustment helps us maintain and improve our course quality.</p>
+
+<p>Thank you for being a valued student at NCLEX Virtual School.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School Team</strong></p>
+
+<div class="alert alert-success">
+    <strong>Your Benefits Continue:</strong><br>
+    Full course access • All future updates • Student support • Certificate upon completion
+</div>
+{% endblock %}
