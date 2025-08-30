@@ -1,0 +1,48 @@
+<!-- emails/platform_admin/bulk_action_performed.html -->
+{% extends "emails/base.html" %}
+
+{% block title %}Bulk Action Performed - NCLEX Virtual School{% endblock %}
+
+{% block header %}Bulk Course Action Alert{% endblock %}
+
+{% block content %}
+<h2>Hello {{ admin.full_name }},</h2>
+
+<p>A bulk action has been performed on multiple courses:</p>
+
+<div class="alert">
+    <strong>Action:</strong> {{ action|title }}<br>
+    <strong>Courses Affected:</strong> {{ courses_count }}<br>
+    <strong>Performed By:</strong> {{ admin_user.full_name }} ({{ admin_user.email }})<br>
+    <strong>Date:</strong> {{ action_date|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>Action Summary:</h3>
+<p>The <strong>{{ action }}</strong> action was successfully applied to {{ courses_count }} courses across the platform.</p>
+
+<h3>Impact:</h3>
+<ul>
+    {% if action == 'activate' %}
+    <li>{{ courses_count }} courses are now visible to students</li>
+    <li>Students can enroll and access these courses</li>
+    <li>Course instructors have been notified</li>
+    {% elif action == 'deactivate' %}
+    <li>{{ courses_count }} courses are now hidden from students</li>
+    <li>Existing enrollments remain intact</li>
+    <li>Students and instructors have been notified</li>
+    {% elif action == 'feature' %}
+    <li>{{ courses_count }} courses are now featured</li>
+    <li>These courses will receive increased visibility</li>
+    <li>Instructors have been notified of the promotion</li>
+    {% endif %}
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ admin_dashboard_url }}" class="button">View Admin Dashboard</a>
+</div>
+
+<p>All affected instructors and students (where applicable) have been automatically notified of this action.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School System</strong></p>
+{% endblock %}

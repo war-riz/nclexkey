@@ -1,0 +1,54 @@
+<!-- emails/platform_admin/pricing_updated.html -->
+{% extends "emails/base.html" %}
+
+{% block title %}Course Pricing Updated - NCLEX Virtual School{% endblock %}
+
+{% block header %}Course Pricing Alert{% endblock %}
+
+{% block content %}
+<h2>Pricing Update Alert</h2>
+
+<p>A course's pricing has been updated by an administrator:</p>
+
+<div class="alert">
+    <strong>Course:</strong> {{ course.title }}<br>
+    <strong>Instructor:</strong> {{ course.created_by.full_name }}<br>
+    <strong>Updated By:</strong> {{ admin_user.full_name }}<br>
+    <strong>Date:</strong> {{ updated_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>Pricing Changes:</h3>
+<ul>
+    <li><strong>Course Type:</strong> {{ old_pricing.course_type|title }} → {{ new_pricing.course_type|title }}</li>
+    <li><strong>Price:</strong> {{ old_pricing.currency }} {{ old_pricing.price }} → {{ new_pricing.currency }} {{ new_pricing.price }}</li>
+    {% if old_pricing.price != new_pricing.price %}
+    <li><strong>Price Change:</strong> 
+        {% if new_pricing.price > old_pricing.price %}
+            <span style="color: #28a745;">+{{ new_pricing.currency }} {{ new_pricing.price|floatformat:2|add:"-"|add:old_pricing.price|floatformat:2 }}</span> (Increase)
+        {% else %}
+            <span style="color: #dc3545;">-{{ new_pricing.currency }} {{ old_pricing.price|floatformat:2|add:"-"|add:new_pricing.price|floatformat:2 }}</span> (Decrease)
+        {% endif %}
+    </li>
+    {% endif %}
+    {% if new_pricing.has_discount %}
+    <li><strong>Discount:</strong> {{ new_pricing.discount_percentage }}% active</li>
+    {% endif %}
+</ul>
+
+<h3>Revenue Impact:</h3>
+<ul>
+    <li>Current enrollments: {{ course.user_progress.count }} students</li>
+    <li>Pricing affects new enrollments only</li>
+    <li>Revenue projections may be impacted</li>
+    <li>Platform commission calculations updated</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ course_url }}" class="button">View Course Details</a>
+</div>
+
+<p>Both the instructor and affected students have been notified of this pricing change.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School System</strong></p>
+{% endblock %}

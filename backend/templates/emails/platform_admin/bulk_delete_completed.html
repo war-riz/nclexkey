@@ -1,0 +1,45 @@
+<!-- emails/platform_admin/bulk_delete_completed.html -->
+{% extends "emails/base.html" %}
+
+{% block title %}Bulk Deletion Completed - NCLEX Virtual School{% endblock %}
+
+{% block header %}Bulk Deletion Summary{% endblock %}
+
+{% block content %}
+<h2>Hello {{ admin.full_name }},</h2>
+
+<p>A bulk deletion operation has been completed with safety measures applied:</p>
+
+<div class="alert alert-danger">
+    <strong>Performed By:</strong> {{ admin_user.full_name }} ({{ admin_user.email }})<br>
+    <strong>Date:</strong> {{ action_date|date:"F d, Y at g:i A" }}<br>
+    <strong>Courses Deleted:</strong> {{ deleted_count }}<br>
+    <strong>Courses Deactivated:</strong> {{ deactivated_count }}
+</div>
+
+<h3>Safety Measures Applied:</h3>
+<ul>
+    <li><strong>{{ deleted_count }} courses</strong> were permanently deleted (no active enrollments or payments)</li>
+    <li><strong>{{ deactivated_count }} courses</strong> were deactivated instead of deleted (had active enrollments or payments)</li>
+    <li>All affected instructors have been notified</li>
+    <li>Students in deactivated courses have been informed</li>
+    <li>Associated video files and media have been cleaned up</li>
+</ul>
+
+<h3>Data Protection:</h3>
+<ul>
+    <li>Student progress data has been preserved for deactivated courses</li>
+    <li>Payment records remain intact</li>
+    <li>Enrollment history is maintained for reporting</li>
+    <li>Course analytics data archived appropriately</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ admin_dashboard_url }}" class="button">View Admin Dashboard</a>
+</div>
+
+<p>The bulk deletion was completed successfully with all safety protocols followed.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School System</strong></p>
+{% endblock %}

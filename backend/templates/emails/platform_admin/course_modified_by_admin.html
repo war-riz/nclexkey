@@ -1,0 +1,37 @@
+
+<!-- emails/platform_admin/course_modified_by_admin.html -->
+{% extends "emails/base.html" %}
+
+{% block title %}Course Modified - NCLEX Virtual School{% endblock %}
+
+{% block header %}Course Modification Alert{% endblock %}
+
+{% block content %}
+<h2>Hello {{ admin.full_name }},</h2>
+
+<p>A course has been modified by a fellow instructor. Here are the details:</p>
+
+<div class="alert">
+    <strong>Course:</strong> {{ course.title }}<br>
+    <strong>Instructor:</strong> {{ course.created_by.full_name }} ({{ course.created_by.email }})<br>
+    <strong>Modified By:</strong> {{ modifier_admin.full_name }} ({{ modifier_admin.email }})<br>
+    <strong>Date:</strong> {{ modified_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>Changes Made:</h3>
+<ul>
+    {% for change in changes %}
+    <li><strong>{{ change.field|title }}:</strong> "{{ change.old_value }}" → "{{ change.new_value }}"</li>
+    {% endfor %}
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ course_url }}" class="button">Review Course</a>
+    <a href="{{ admin_dashboard_url }}" class="button" style="background: #6c757d; margin-left: 10px;">Admin Dashboard</a>
+</div>
+
+<p>This notification is sent to keep all administrators informed of course modifications.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School System</strong></p>
+{% endblock %}

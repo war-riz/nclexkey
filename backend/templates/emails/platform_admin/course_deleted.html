@@ -1,0 +1,47 @@
+<!-- emails/platform_admin/course_deleted.html -->
+{% extends "emails/base.html" %}
+
+{% block title %}Course Permanently Deleted - NCLEX Virtual School{% endblock %}
+
+{% block header %}Course Deletion Alert{% endblock %}
+
+{% block content %}
+<h2>Hello Platform Administrator,</h2>
+
+<p>A course has been <strong>permanently deleted</strong> from the platform by an instructor:</p>
+
+<div class="alert alert-danger">
+    <strong>Course:</strong> {{ course_title }}<br>
+    <strong>Instructor/Deleted By:</strong> {{ instructor.full_name }}<br>
+    <strong>Date:</strong> {{ deleted_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>Important Notice:</h3>
+<ul>
+    <li>This action is <strong>irreversible</strong> - the course and all associated data have been permanently removed</li>
+    <li>All student enrollments and progress data have been deleted</li>
+    <li>Course materials, assignments, and assessments are no longer accessible</li>
+    <li>Enrolled students have been automatically notified of the deletion</li>
+</ul>
+
+<h3>Administrative Actions:</h3>
+<ul>
+    <li>Review the deletion to ensure it follows platform policies</li>
+    <li>Monitor for any student inquiries regarding the deleted course</li>
+    <li>Verify that proper notification procedures were followed</li>
+    <li>Consider if additional oversight is needed for course deletions</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ admin_dashboard_url }}" class="button">View Admin Dashboard</a>
+</div>
+
+<div class="alert">
+    <strong>Action Required:</strong> Please review deletion logs and ensure all stakeholders have been properly notified.
+</div>
+
+<p>If you need to review this deletion or implement additional safeguards for course management, please access the admin dashboard.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School System</strong></p>
+{% endblock %}
