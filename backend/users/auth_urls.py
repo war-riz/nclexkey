@@ -31,6 +31,8 @@ urlpatterns = [
     # User profile
     path('users/me/', auth_views.user_profile, name='user_profile'),
     path('users/me/update/', auth_views.update_profile, name='update_profile'),
+    path('profile/picture/', auth_views.upload_profile_picture, name='upload_profile_picture'),
+    path('profile/picture/delete/', auth_views.delete_profile_picture, name='delete_profile_picture'),
     path('sessions/', auth_views.user_sessions, name='user_sessions'),
 
     # Account Deletion

@@ -239,11 +239,20 @@ class ResendVerificationSerializer(serializers.Serializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    profile_picture_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
-        fields = ['id', 'email', 'full_name', 'phone_number', 'role', 'created_at',                 'is_email_verified', 'is_deletion_pending', 'deletion_scheduled_for']
+        fields = ['id', 'email', 'full_name', 'phone_number', 'role', 'created_at',
+                 'is_email_verified', 'is_deletion_pending', 'deletion_scheduled_for', 
+                 'profile_picture', 'profile_picture_url']
         read_only_fields = ['id', 'email', 'role', 'created_at', 'is_email_verified', 
-        'is_deletion_pending', 'deletion_scheduled_for']
+                           'is_deletion_pending', 'deletion_scheduled_for', 'profile_picture_url']
+    
+    def get_profile_picture_url(self, obj):
+        if obj.profile_picture:
+            return obj.profile_picture.url
+        return None
     
     def validate_full_name(self, value):
         value = value.strip()
@@ -261,7 +270,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['full_name', 'phone_number']
+        fields = ['full_name', 'phone_number', 'profile_picture']
     
     def validate_full_name(self, value):
         value = value.strip()
@@ -284,6 +293,22 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         if not re.match(r'^\+?[\d]{10,15}$', cleaned):
             raise serializers.ValidationError("Enter a valid phone number.")
 
+        return value
+    
+    
+class ProfilePictureUploadSerializer(serializers.Serializer):
+    profile_picture = serializers.ImageField()
+    
+    def validate_profile_picture(self, value):
+        # Validate file size (max 5MB)
+        if value.size > 5 * 1024 * 1024:
+            raise serializers.ValidationError("Profile picture must be less than 5MB.")
+        
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+        if value.content_type not in allowed_types:
+            raise serializers.ValidationError("Only JPEG, PNG, and WebP images are allowed.")
+        
         return value
 
 

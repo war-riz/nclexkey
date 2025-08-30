@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.contrib.auth.hashers import make_password, check_password
 from django.utils import timezone
 from django.core.validators import EmailValidator
+from cloudinary.models import CloudinaryField
 import uuid
 from datetime import timedelta
 
@@ -44,6 +45,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     full_name = models.CharField(max_length=255)
     phone_number = models.CharField(max_length=20, blank=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
+
+
+    # Profile picture field
+    profile_picture = CloudinaryField('image', null=True, blank=True, folder="users/profile_pictures")
     
     # Authentication fields
     is_active = models.BooleanField(default=True)

@@ -1,18 +1,20 @@
 # /users/auth_views.py
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth import authenticate
 from django.utils import timezone
 from datetime import timedelta
 from django.db import transaction
+from cloudinary.uploader import upload, destroy
 from django.core.cache import cache
 from .models import User, PasswordResetToken, RefreshToken
 from .serializers import (
     UserRegistrationSerializer, UserLoginSerializer, ForgotPasswordSerializer,
     PasswordResetConfirmSerializer, EmailVerificationSerializer, ResendVerificationSerializer,
-    UserProfileSerializer, UserProfileUpdateSerializer, RefreshTokenSerializer,
+    UserProfileSerializer, UserProfileUpdateSerializer, ProfilePictureUploadSerializer, RefreshTokenSerializer,
     ChangePasswordSerializer, CancelDeletionSerializer, DeleteAccountSerializer
 )
 from utils.auth import (
@@ -200,7 +202,8 @@ def login(request):
                     'phone_number': user.phone_number,
                     'role': user.role,
                     'is_deletion_pending': user.is_deletion_pending,
-                    'deletion_scheduled_for': user.deletion_scheduled_for.isoformat() if user.deletion_scheduled_for else None
+                    'deletion_scheduled_for': user.deletion_scheduled_for.isoformat() if user.deletion_scheduled_for else None,
+                    'profile_picture_url': user.profile_picture.url if user.profile_picture else None
                 }
             }
 
@@ -814,6 +817,113 @@ def update_profile(request):
         logger.error(f"Profile update error: {str(e)}")
         return Response(
             {'detail': 'Profile update failed.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser])
+def upload_profile_picture(request):
+    """
+    Upload/Update User Profile Picture
+    POST /api/auth/profile/picture/
+    """
+    serializer = ProfilePictureUploadSerializer(data=request.data)
+    
+    if not serializer.is_valid():
+        return Response(
+            {'detail': 'Invalid image data.', 'errors': serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        with transaction.atomic():
+            user = request.user
+            profile_picture = serializer.validated_data['profile_picture']
+            
+            # Delete old profile picture if exists
+            if user.profile_picture:
+                try:
+                    destroy(user.profile_picture.public_id)
+                except Exception as e:
+                    logger.warning(f"Failed to delete old profile picture: {str(e)}")
+            
+            # Create organized folder structure
+            folder_path = f"users/profile_pictures/{user.id}"
+            
+            # Upload new profile picture
+            upload_result = upload(
+                profile_picture,
+                resource_type="image",
+                folder=folder_path,
+                public_id=f"profile_{user.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}",
+                overwrite=True,
+                transformation=[
+                    {'width': 300, 'height': 300, 'crop': 'fill'},
+                    {'quality': 'auto:good'},
+                    {'format': 'auto'}
+                ],
+                tags=[
+                    'profile_picture',
+                    f'user_{user.id}',
+                    f'uploaded_{timezone.now().year}'
+                ]
+            )
+            
+            # Update user profile picture
+            user.profile_picture = upload_result['public_id']
+            user.save(update_fields=['profile_picture'])
+            
+            return Response({
+                'message': 'Profile picture uploaded successfully.',
+                'profile_picture_url': upload_result['secure_url']
+            }, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"Profile picture upload error: {str(e)}")
+        return Response(
+            {'detail': f'Profile picture upload failed: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_profile_picture(request):
+    """
+    Delete User Profile Picture
+    DELETE /api/auth/profile/picture/
+    """
+    try:
+        user = request.user
+        
+        if not user.profile_picture:
+            return Response(
+                {'detail': 'No profile picture to delete.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        with transaction.atomic():
+            # Delete from Cloudinary
+            try:
+                destroy(user.profile_picture.public_id)
+            except Exception as e:
+                logger.warning(f"Failed to delete profile picture from Cloudinary: {str(e)}")
+            
+            # Remove from user model
+            user.profile_picture = None
+            user.save(update_fields=['profile_picture'])
+            
+            return Response(
+                {'message': 'Profile picture deleted successfully.'},
+                status=status.HTTP_200_OK
+            )
+    
+    except Exception as e:
+        logger.error(f"Profile picture deletion error: {str(e)}")
+        return Response(
+            {'detail': 'Profile picture deletion failed.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
