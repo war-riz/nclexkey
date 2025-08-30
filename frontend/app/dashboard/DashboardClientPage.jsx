@@ -59,7 +59,7 @@ export default function DashboardClientPage() {
         setLoadingData(true)
         try {
           // Fetch comprehensive dashboard data
-          const dashboardResponse = await apiRequest("/api/courses/dashboard/", { method: "GET" })
+          const dashboardResponse = await apiRequest("/api/courses/", { method: "GET" })
           if (!dashboardResponse.success) {
             throw new Error(dashboardResponse.error.message || "Failed to fetch dashboard data.")
           }
@@ -192,12 +192,12 @@ export default function DashboardClientPage() {
       <header className="bg-white shadow-sm py-6 px-6 border-b border-gray-200">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Avatar className="h-12 w-12">
+            {/* <Avatar className="h-12 w-12">
               <AvatarImage src={userInfo.avatar} alt={userInfo.name} />
               <AvatarFallback className="bg-indigo-100 text-indigo-600 font-semibold">
                 {userInfo.name?.charAt(0) || user.email?.charAt(0) || 'U'}
               </AvatarFallback>
-            </Avatar>
+            </Avatar> */}
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
                 Welcome back, {userInfo.name || user.full_name || user.email}!
