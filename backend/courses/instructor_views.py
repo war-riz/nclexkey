@@ -529,7 +529,14 @@ def update_course(request, course_id):
             # Send notification to instructor (owner)
             if changes:
                 AdminEmailService.notify_course_updated(updated_course, request.user, changes)
-            
+
+                # Notify course creator about changes made by admin
+                #AdminEmailService.notify_course_updated_by_admin(updated_course, request.user, changes)
+
+                # Notify platform admins about course modifications (if changed by regular admin)
+                if not request.user.is_superuser:
+                    AdminEmailService.notify_platform_admins_course_modified(updated_course, request.user, changes)
+
             # Return updated course data
             response_serializer = CourseSerializer(updated_course)
             response_data = response_serializer.data
@@ -580,6 +587,14 @@ def delete_course(request, course_id):
                 course.is_active = False
                 course.updated_by = request.user
                 course.save(update_fields=['is_active', 'updated_by'])
+
+                # Course is being deactivated, not deleted
+                # Notify affected students about course deactivation
+                AdminEmailService.notify_students_course_deactivated(course, request.user)
+                # Notify instructor about deactivation
+                AdminEmailService.notify_instructor_course_deactivated(course, request.user)
+                # Notify platform admins about deactivation
+                AdminEmailService.notify_platform_admins_course_deactivated(course, request.user)
                 
                 logger.info(f"Course deactivated: {course_title} by admin {request.user.email} (had {active_enrollments} active enrollments, {paid_enrollments} paid enrollments)")
                 
@@ -632,7 +647,13 @@ def delete_course(request, course_id):
                     logger.info(f"Auto-generated thumbnails deleted for course: {course.id}")
                 except Exception as tag_error:
                     logger.error(f"Failed to delete tagged resources: {str(tag_error)}")
-                
+
+                # Course is being permanently deleted
+                # Notify instructor about permanent deletion
+                AdminEmailService.notify_instructor_course_deleted(course_title, course.created_by, request.user)
+                # Notify platform admins about deletion
+                AdminEmailService.notify_platform_admins_course_deleted(course_title, course.created_by, request.user)
+
                 logger.info(f"Course deleted: {course_title} by admin {request.user.email}")
                 
                 return Response(
@@ -897,22 +918,14 @@ def user_course_progress_detail(request, user_id, course_id):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-
 @api_view(['POST'])
-@permission_classes([IsAdmin])
+@permission_classes([IsAdmin])  # Regular instructors
 def bulk_course_actions(request):
     """
-    Admin: Enhanced Bulk Actions on Courses
+    Instructor: Bulk Actions on OWN Courses Only
     POST /api/admin/courses/bulk-actions/
     
-    Supported actions:
-    - activate: Activate selected courses
-    - deactivate: Deactivate selected courses
-    - delete: Delete courses (with safety checks)
-    - feature: Mark courses as featured
-    - unfeature: Remove featured status
-    - update_category: Update category for selected courses
-    - apply_discount: Apply discount to selected courses
+    Instructors can only perform bulk actions on courses they created
     """
     action = request.data.get('action')
     course_ids = request.data.get('course_ids', [])
@@ -923,25 +936,37 @@ def bulk_course_actions(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    valid_actions = [
-        'activate', 'deactivate', 'delete', 'feature', 'unfeature',
-        'update_category', 'apply_discount', 'remove_discount'
-    ]
+    # Restricted actions for instructors
+    allowed_instructor_actions = ['activate', 'deactivate', 'update_category', 'apply_discount', 'remove_discount']
     
-    if action not in valid_actions:
+    if action not in allowed_instructor_actions:
         return Response(
-            {'detail': f'Invalid action. Valid actions: {", ".join(valid_actions)}'},
-            status=status.HTTP_400_BAD_REQUEST
+            {'detail': f'Action not allowed. Instructors can only: {", ".join(allowed_instructor_actions)}'},
+            status=status.HTTP_403_FORBIDDEN
         )
     
     try:
         with transaction.atomic():
-            courses = Course.objects.filter(id__in=course_ids)
+            # CRITICAL: Only allow actions on instructor's OWN courses
+            courses = Course.objects.filter(
+                id__in=course_ids,
+                created_by=request.user  # This ensures instructors can only modify their own courses
+            )
             
             if not courses.exists():
                 return Response(
-                    {'detail': 'No courses found with provided IDs.'},
+                    {'detail': 'No courses found. You can only perform bulk actions on your own courses.'},
                     status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Check if instructor tried to act on courses they don't own
+            requested_courses_count = len(course_ids)
+            owned_courses_count = courses.count()
+            
+            if requested_courses_count > owned_courses_count:
+                return Response(
+                    {'detail': 'Some courses do not belong to you. Action cancelled for security.'},
+                    status=status.HTTP_403_FORBIDDEN
                 )
             
             updated_count = 0
@@ -949,19 +974,25 @@ def bulk_course_actions(request):
             
             if action == 'activate':
                 updated_count = courses.update(is_active=True, updated_by=request.user)
-                response_data['message'] = f'Successfully activated {updated_count} courses.'
+                response_data['message'] = f'Successfully activated {updated_count} of your courses.'
+                
+                # Notify platform admins about instructor activity
+                AdminEmailService.notify_platform_admins_instructor_activity(
+                    request.user, 'activated', updated_count
+                )
                 
             elif action == 'deactivate':
                 updated_count = courses.update(is_active=False, updated_by=request.user)
-                response_data['message'] = f'Successfully deactivated {updated_count} courses.'
+                response_data['message'] = f'Successfully deactivated {updated_count} of your courses.'
                 
-            elif action == 'feature':
-                updated_count = courses.update(is_featured=True, updated_by=request.user)
-                response_data['message'] = f'Successfully featured {updated_count} courses.'
+                # Notify enrolled students about deactivation
+                for course in courses:
+                    AdminEmailService.notify_students_course_deactivated(course, request.user)
                 
-            elif action == 'unfeature':
-                updated_count = courses.update(is_featured=False, updated_by=request.user)
-                response_data['message'] = f'Successfully unfeatured {updated_count} courses.'
+                # Notify platform admins
+                AdminEmailService.notify_platform_admins_instructor_activity(
+                    request.user, 'deactivated', updated_count
+                )
                 
             elif action == 'update_category':
                 new_category = request.data.get('category')
@@ -974,101 +1005,49 @@ def bulk_course_actions(request):
                 updated_count = courses.update(category=new_category, updated_by=request.user)
                 response_data['message'] = f'Successfully updated category for {updated_count} courses.'
                 
-            elif action == 'apply_discount':
-                discount_percentage = request.data.get('discount_percentage')
-                discount_start_date = request.data.get('discount_start_date')
-                discount_end_date = request.data.get('discount_end_date')
-                
-                if not discount_percentage or discount_percentage <= 0 or discount_percentage > 100:
-                    return Response(
-                        {'detail': 'Valid discount_percentage (1-100) is required.'},
-                        status=status.HTTP_400_BAD_REQUEST
+            elif action in ['apply_discount', 'remove_discount']:
+                if action == 'apply_discount':
+                    discount_percentage = request.data.get('discount_percentage')
+                    if not discount_percentage or discount_percentage <= 0 or discount_percentage > 100:
+                        return Response(
+                            {'detail': 'Valid discount_percentage (1-100) is required.'},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    update_data = {
+                        'has_discount': True,
+                        'discount_percentage': discount_percentage,
+                        'updated_by': request.user
+                    }
+                    
+                    # Optional discount dates
+                    if request.data.get('discount_start_date'):
+                        update_data['discount_start_date'] = request.data.get('discount_start_date')
+                    if request.data.get('discount_end_date'):
+                        update_data['discount_end_date'] = request.data.get('discount_end_date')
+                    
+                    updated_count = courses.update(**update_data)
+                    response_data['message'] = f'Successfully applied {discount_percentage}% discount to {updated_count} courses.'
+                    
+                else:  # remove_discount
+                    updated_count = courses.update(
+                        has_discount=False,
+                        discount_percentage=0,
+                        discount_start_date=None,
+                        discount_end_date=None,
+                        updated_by=request.user
                     )
-                
-                update_data = {
-                    'has_discount': True,
-                    'discount_percentage': discount_percentage,
-                    'updated_by': request.user
-                }
-                
-                if discount_start_date:
-                    update_data['discount_start_date'] = discount_start_date
-                if discount_end_date:
-                    update_data['discount_end_date'] = discount_end_date
-                
-                updated_count = courses.update(**update_data)
-                response_data['message'] = f'Successfully applied {discount_percentage}% discount to {updated_count} courses.'
-                
-            elif action == 'remove_discount':
-                updated_count = courses.update(
-                    has_discount=False,
-                    discount_percentage=0,
-                    discount_start_date=None,
-                    discount_end_date=None,
-                    updated_by=request.user
-                )
-                response_data['message'] = f'Successfully removed discount from {updated_count} courses.'
-                
-            elif action == 'delete':
-                # Enhanced deletion with detailed safety checks
-                courses_with_enrollments = []
-                courses_with_payments = []
-                courses_to_delete = []
-                courses_deactivated = []
-                
-                for course in courses:
-                    has_progress = course.user_progress.filter(progress_percentage__gt=0).exists()
-                    has_payments = course.enrollments.filter(payment_status='completed').exists()
-                    
-                    if has_progress or has_payments:
-                        # Cannot delete - deactivate instead
-                        course.is_active = False
-                        course.updated_by = request.user
-                        course.save(update_fields=['is_active', 'updated_by'])
-                        courses_deactivated.append(course.title)
-                        
-                        if has_progress:
-                            courses_with_enrollments.append(course.title)
-                        if has_payments:
-                            courses_with_payments.append(course.title)
-                    else:
-                        courses_to_delete.append(course)
-                
-                # Delete courses that are safe to delete
-                deleted_count = 0
-                if courses_to_delete:
-                    # Clean up associated video files
-                    for course in courses_to_delete:
-                        if course.video_source == 'upload' and course.video_file:
-                            try:
-                                destroy(course.video_file.public_id, resource_type="video")
-                            except Exception as e:
-                                logger.error(f"Failed to delete video for course {course.title}: {str(e)}")
-                    
-                    Course.objects.filter(id__in=[c.id for c in courses_to_delete]).delete()
-                    deleted_count = len(courses_to_delete)
-                
-                response_data = {
-                    'message': 'Bulk deletion completed with safety checks.',
-                    'deleted_courses': deleted_count,
-                    'deactivated_courses': len(courses_deactivated),
-                    'courses_with_enrollments': courses_with_enrollments,
-                    'courses_with_payments': courses_with_payments,
-                    'deactivated_course_names': courses_deactivated
-                }
-                
-                logger.info(f"Bulk delete: {deleted_count} deleted, {len(courses_deactivated)} deactivated by admin {request.user.email}")
-                return Response(response_data, status=status.HTTP_200_OK)
+                    response_data['message'] = f'Successfully removed discount from {updated_count} courses.'
             
             response_data['updated_courses'] = updated_count
             
-            # Log bulk action
-            logger.info(f"Bulk action '{action}' performed on {updated_count} courses by admin {request.user.email}")
+            # Log instructor bulk action
+            logger.info(f"Instructor bulk action '{action}' performed on {updated_count} courses by {request.user.email}")
             
             return Response(response_data, status=status.HTTP_200_OK)
     
     except Exception as e:
-        logger.error(f"Bulk course actions error: {str(e)}")
+        logger.error(f"Instructor bulk course actions error: {str(e)}")
         return Response(
             {'detail': 'Bulk action failed. Please try again.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -1504,6 +1483,10 @@ def section_lessons(request, course_id, section_id):
             with transaction.atomic():
                 lesson = serializer.save(section=section, created_by=request.user)
 
+                # Notify instructor about new lesson added by admin
+                if lesson.section.course.created_by != request.user:
+                    AdminEmailService.notify_instructor_lesson_added(lesson, request.user)
+
                 # Handle video processing
                 if lesson.lesson_type == 'video':
                     video_url = lesson.get_video_url()
@@ -1874,7 +1857,6 @@ def bulk_lesson_actions(request, course_id, section_id):
 
 
 # USER LESSON PROGRESS TRACKING
-
 @api_view(['GET'])
 @permission_classes([IsAdmin])
 def lesson_progress_analytics(request, course_id, section_id, lesson_id):
@@ -2128,6 +2110,9 @@ def process_manual_enrollment(request):
                 course=course,
                 progress_percentage=0
             )
+
+            # Notify instructor about manual enrollment by admin
+            AdminEmailService.notify_instructor_manual_enrollment(user, course, request.user)
             
             # Send notification email to user
             EmailService.send_enrollment_confirmation(user, course, enrollment)
@@ -2330,6 +2315,9 @@ def create_course_exam(request, course_id):
         
         with transaction.atomic():
             exam = serializer.save()
+
+            # Notify course instructor about new exam
+            AdminEmailService.notify_instructor_exam_created(exam, request.user)
             
             # Send notification to other admins
             AdminEmailService.notify_exam_created(exam, request.user)
@@ -3246,6 +3234,15 @@ def update_course_pricing(request, course_id):
     """
     try:
         course = Course.objects.get(id=course_id)
+
+        # Store old pricing for comparison
+        old_pricing = {
+            'course_type': course.course_type,
+            'price': course.price,
+            'currency': course.currency,
+            'has_discount': course.has_discount,
+            'discount_percentage': course.discount_percentage
+        }
         
         course_type = request.data.get('course_type')
         price = request.data.get('price')
@@ -3305,6 +3302,26 @@ def update_course_pricing(request, course_id):
             course.discount_end_date = discount_end_date
             course.updated_by = request.user
             course.save()
+
+            new_pricing = {
+                'course_type': course.course_type,
+                'price': course.price,
+                'currency': course.currency,
+                'has_discount': course.has_discount,
+                'discount_percentage': course.discount_percentage,
+                'discount_start_date': course.discount_start_date,
+                'discount_end_date': course.discount_end_date
+            }
+            
+            # Notify instructor about pricing changes
+            AdminEmailService.notify_instructor_pricing_updated(course, request.user, old_pricing, new_pricing)
+            
+            # Notify students if price increased significantly (optional)
+            if course.price > old_pricing['price']:
+                AdminEmailService.notify_students_pricing_changed(course, old_pricing['price'], course.price)
+            
+            # Notify platform admins about pricing changes
+            AdminEmailService.notify_platform_admins_pricing_updated(course, request.user, old_pricing, new_pricing)
             
             logger.info(f"Course pricing updated: {course.title} -> {course_type} (${price}) by {request.user.email}")
             

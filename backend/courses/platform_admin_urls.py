@@ -23,6 +23,7 @@ urlpatterns = [
     path('courses/<uuid:course_id>/', platform_admin_views.course_detail_for_review, name='course_detail_review'),
     path('courses/<uuid:course_id>/moderate/', platform_admin_views.moderate_course, name='moderate_course'),
     path('courses/bulk-actions/', platform_admin_views.bulk_course_actions, name='bulk_course_actions'),
+     path('courses/bulk-multiple-actions/', platform_admin_views.bulk_course_multiple_actions, name='platform_bulk_course_multiple_actions'),
     path('courses/moderation-stats/', platform_admin_views.course_moderation_stats, name='course_moderation_stats'),
 
     # Complete course details (with all related data and statistics)
