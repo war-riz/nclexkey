@@ -147,6 +147,584 @@ class AdminEmailService:
         except Exception as e:
             logger.error(f"Failed to notify course instructor or super admins: {str(e)}")
 
+
+    @staticmethod
+    def notify_course_updated_by_admin(course, admin_user, changes):
+        """Notify course creator when admin updates their course"""
+        try:
+            if course.created_by == admin_user:
+                return  # Don't notify if admin is updating their own course
+
+            subject = f"Your Course Has Been Updated: {course.title}"
+            context = {
+                'course': course,
+                'instructor': course.created_by,
+                'admin_user': admin_user,
+                'changes': changes,
+                'course_url': f"{settings.FRONTEND_URL}/instructor/courses/{course.id}",
+                'support_email': 'support@nclexvirtualschool.com',
+                'updated_at': timezone.now()
+            }
+
+            EmailService._send_email(
+                user=course.created_by,
+                email_type='course_updated_by_admin',
+                subject=subject,
+                html_message=AdminEmailService._render_template('emails/instructor/course_updated_by_admin.html', context),
+                plain_message=f"Your course '{course.title}' has been updated by an administrator."
+            )
+
+            logger.info(f"Course update notification sent to instructor {course.created_by.email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send course update notification: {str(e)}")
+
+    @staticmethod
+    def notify_platform_admins_course_modified(course, modifier_admin, changes):
+        """Notify platform admins when regular admin modifies a course"""
+        try:
+            platform_admins = User.objects.filter(
+                role='super_admin', 
+                is_superuser=True, 
+                is_active=True
+            ).exclude(id=modifier_admin.id)
+
+            subject = f"Course Modified by Admin: {course.title}"
+            context = {
+                'course': course,
+                'modifier_admin': modifier_admin,
+                'changes': changes,
+                'course_url': f"{settings.FRONTEND_URL}/admin/courses/{course.id}",
+                'admin_dashboard_url': f"{settings.FRONTEND_URL}/admin/dashboard",
+                'modified_at': timezone.now()
+            }
+
+            for admin in platform_admins:
+                EmailService._send_email(
+                    user=admin,
+                    email_type='course_modified_by_admin',
+                    subject=subject,
+                    html_message=AdminEmailService._render_template('emails/platform_admin/course_modified_by_admin.html', context),
+                    plain_message=f"Course '{course.title}' was modified by {modifier_admin.full_name}."
+                )
+
+            logger.info(f"Course modification notification sent to {platform_admins.count()} platform admins")
+
+        except Exception as e:
+            logger.error(f"Failed to send course modification notification: {str(e)}")
+
+    @staticmethod
+    def notify_students_course_deactivated(course, admin_user):
+        """Notify enrolled students when their course is deactivated"""
+        try:
+            # Get all users who have progress in this course
+            enrolled_users = User.objects.filter(
+                course_progress__course=course,
+                is_active=True
+            ).distinct()
+
+            subject = f"Course Update: {course.title}"
+            context = {
+                'course': course,
+                'admin_user': admin_user,
+                'deactivated_at': timezone.now(),
+                'support_email': 'support@nclexvirtualschool.com',
+                'alternative_courses_url': f"{settings.FRONTEND_URL}/courses",
+                'contact_support_url': f"{settings.FRONTEND_URL}/support"
+            }
+
+            for user in enrolled_users:
+                context['user'] = user
+                EmailService._send_email(
+                    user=user,
+                    email_type='course_deactivated',
+                    subject=subject,
+                    html_message=AdminEmailService._render_template('emails/student/course_deactivated.html', context),
+                    plain_message=f"The course '{course.title}' you were enrolled in has been temporarily deactivated."
+                )
+
+            logger.info(f"Course deactivation notification sent to {enrolled_users.count()} students")
+
+        except Exception as e:
+            logger.error(f"Failed to send course deactivation notification: {str(e)}")
+
+    @staticmethod
+    def notify_instructor_course_deactivated(course, admin_user):
+        """Notify instructor when their course is deactivated"""
+        try:
+            if course.created_by == admin_user:
+                return  # Don't notify if admin is deactivating their own course
+
+            subject = f"Your Course Has Been Deactivated: {course.title}"
+            context = {
+                'course': course,
+                'instructor': course.created_by,
+                'admin_user': admin_user,
+                'deactivated_at': timezone.now(),
+                'course_url': f"{settings.FRONTEND_URL}/instructor/courses/{course.id}",
+                'support_email': 'support@nclexvirtualschool.com',
+                'appeal_url': f"{settings.FRONTEND_URL}/instructor/appeals/create"
+            }
+
+            EmailService._send_email(
+                user=course.created_by,
+                email_type='course_deactivated_instructor',
+                subject=subject,
+                html_message=AdminEmailService._render_template('emails/instructor/course_deactivated.html', context),
+                plain_message=f"Your course '{course.title}' has been deactivated."
+            )
+
+            logger.info(f"Course deactivation notification sent to instructor {course.created_by.email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send instructor deactivation notification: {str(e)}")
+
+    @staticmethod
+    def notify_instructor_course_deleted(course_title, instructor, admin_user):
+        """Notify instructor when their course is permanently deleted"""
+        try:
+            if instructor == admin_user:
+                return  # Don't notify if admin is deleting their own course
+
+            subject = f"Your Course Has Been Deleted: {course_title}"
+            context = {
+                'course_title': course_title,
+                'instructor': instructor,
+                'admin_user': admin_user,
+                'deleted_at': timezone.now(),
+                'support_email': 'support@nclexvirtualschool.com',
+                'create_new_course_url': f"{settings.FRONTEND_URL}/instructor/courses/create"
+            }
+
+            EmailService._send_email(
+                user=instructor,
+                email_type='course_deleted_instructor',
+                subject=subject,
+                html_message=AdminEmailService._render_template('emails/instructor/course_deleted.html', context),
+                plain_message=f"Your course '{course_title}' has been permanently deleted."
+            )
+
+            logger.info(f"Course deletion notification sent to instructor {instructor.email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send instructor deletion notification: {str(e)}")
+
+    @staticmethod
+    def notify_platform_admins_course_deactivated(course, admin_user):
+        """Notify platform admins when course is deactivated"""
+        try:
+            platform_admins = User.objects.filter(
+                role='super_admin', 
+                is_superuser=True, 
+                is_active=True
+            ).exclude(id=admin_user.id)
+
+            subject = f"Course Deactivated: {course.title}"
+            context = {
+                'course': course,
+                'admin_user': admin_user,
+                'deactivated_at': timezone.now(),
+                'course_url': f"{settings.FRONTEND_URL}/admin/courses/{course.id}",
+                'admin_dashboard_url': f"{settings.FRONTEND_URL}/admin/dashboard"
+            }
+
+            for admin in platform_admins:
+                EmailService._send_email(
+                    user=admin,
+                    email_type='course_deactivated_admin',
+                    subject=subject,
+                    html_message=AdminEmailService._render_template('emails/platform_admin/course_deactivated.html', context),
+                    plain_message=f"Course '{course.title}' was deactivated by {admin_user.full_name}."
+                )
+
+            logger.info(f"Course deactivation notification sent to {platform_admins.count()} platform admins")
+
+        except Exception as e:
+            logger.error(f"Failed to send platform admin deactivation notification: {str(e)}")
+
+    @staticmethod
+    def notify_platform_admins_course_deleted(course_title, instructor, admin_user):
+        """Notify platform admins when course is deleted"""
+        try:
+            platform_admins = User.objects.filter(
+                role='super_admin', 
+                is_superuser=True, 
+                is_active=True
+            ).exclude(id=admin_user.id)
+
+            subject = f"Course Deleted: {course_title}"
+            context = {
+                'course_title': course_title,
+                'instructor': instructor,
+                'admin_user': admin_user,
+                'deleted_at': timezone.now(),
+                'admin_dashboard_url': f"{settings.FRONTEND_URL}/admin/dashboard"
+            }
+
+            for admin in platform_admins:
+                EmailService._send_email(
+                    user=admin,
+                    email_type='course_deleted_admin',
+                    subject=subject,
+                    html_message=AdminEmailService._render_template('emails/platform_admin/course_deleted.html', context),
+                    plain_message=f"Course '{course_title}' was permanently deleted by {admin_user.full_name}."
+                )
+
+            logger.info(f"Course deletion notification sent to {platform_admins.count()} platform admins")
+
+        except Exception as e:
+            logger.error(f"Failed to send platform admin deletion notification: {str(e)}")
+
+    @staticmethod
+    def notify_instructor_bulk_course_action(instructor, action, courses, admin_user):
+        """Notify instructor when admin performs bulk actions on their courses"""
+        try:
+            if instructor == admin_user:
+                return  # Don't notify if admin is acting on their own courses
+
+            action_past_tense = {
+                'activate': 'activated',
+                'deactivate': 'deactivated',
+                'feature': 'featured',
+                'unfeature': 'unfeatured',
+                'update_category': 'category updated',
+                'apply_discount': 'discount applied',
+                'remove_discount': 'discount removed'
+            }
+
+            subject = f"Your Courses Have Been {action_past_tense.get(action, action.title())}"
+            context = {
+                'instructor': instructor,
+                'admin_user': admin_user,
+                'action': action,
+                'action_past_tense': action_past_tense.get(action, action),
+                'courses': list(courses.values('id', 'title', 'course_type')),
+                'courses_count': courses.count(),
+                'action_date': timezone.now(),
+                'instructor_dashboard_url': f"{settings.FRONTEND_URL}/instructor/dashboard",
+                'support_email': 'support@nclexvirtualschool.com'
+            }
+
+            EmailService._send_email(
+                user=instructor,
+                email_type='bulk_course_action_instructor',
+                subject=subject,
+                html_message=AdminEmailService._render_template('emails/instructor/bulk_course_action.html', context),
+                plain_message=f"{courses.count()} of your courses have been {action_past_tense.get(action, action)} by an administrator."
+            )
+
+            logger.info(f"Bulk action notification sent to instructor {instructor.email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send bulk action notification: {str(e)}")
+
+    @staticmethod
+    def notify_platform_admins_bulk_action(action, courses_count, admin_user):
+        """Notify platform admins about bulk actions performed"""
+        try:
+            platform_admins = User.objects.filter(
+                role='super_admin', 
+                is_superuser=True, 
+                is_active=True
+            ).exclude(id=admin_user.id)
+
+            subject = f"Bulk Action Performed: {action.title()} on {courses_count} Courses"
+            context = {
+                'admin_user': admin_user,
+                'action': action,
+                'courses_count': courses_count,
+                'action_date': timezone.now(),
+                'admin_dashboard_url': f"{settings.FRONTEND_URL}/admin/dashboard"
+            }
+
+            for admin in platform_admins:
+                EmailService._send_email(
+                    user=admin,
+                    email_type='bulk_action_admin',
+                    subject=subject,
+                    html_message=AdminEmailService._render_template('emails/platform_admin/bulk_action_performed.html', context),
+                    plain_message=f"{admin_user.full_name} performed bulk {action} on {courses_count} courses."
+                )
+
+            logger.info(f"Bulk action notification sent to {platform_admins.count()} platform admins")
+
+        except Exception as e:
+            logger.error(f"Failed to send platform admin bulk action notification: {str(e)}")
+
+    @staticmethod
+    def notify_platform_admins_bulk_delete(deleted_count, deactivated_count, admin_user):
+        """Notify platform admins about bulk deletion results"""
+        try:
+            platform_admins = User.objects.filter(
+                role='super_admin', 
+                is_superuser=True, 
+                is_active=True
+            ).exclude(id=admin_user.id)
+
+            subject = f"Bulk Deletion Completed: {deleted_count} Deleted, {deactivated_count} Deactivated"
+            context = {
+                'admin_user': admin_user,
+                'deleted_count': deleted_count,
+                'deactivated_count': deactivated_count,
+                'action_date': timezone.now(),
+                'admin_dashboard_url': f"{settings.FRONTEND_URL}/admin/dashboard"
+            }
+
+            for admin in platform_admins:
+                EmailService._send_email(
+                    user=admin,
+                    email_type='bulk_delete_admin',
+                    subject=subject,
+                    html_message=AdminEmailService._render_template('emails/platform_admin/bulk_delete_completed.html', context),
+                    plain_message=f"Bulk deletion completed: {deleted_count} courses deleted, {deactivated_count} deactivated."
+                )
+
+            logger.info(f"Bulk delete notification sent to {platform_admins.count()} platform admins")
+
+        except Exception as e:
+            logger.error(f"Failed to send platform admin bulk delete notification: {str(e)}")
+
+    @staticmethod
+    def notify_platform_admins_instructor_activity(instructor, action, courses_count):
+        """Notify platform admins when instructors perform bulk actions"""
+        try:
+            platform_admins = User.objects.filter(
+                role='super_admin', 
+                is_superuser=True, 
+                is_active=True
+            )
+
+            subject = f"Instructor Bulk Action: {instructor.full_name} {action} {courses_count} Courses"
+            context = {
+                'instructor': instructor,
+                'action': action,
+                'courses_count': courses_count,
+                'action_date': timezone.now(),
+                'admin_dashboard_url': f"{settings.FRONTEND_URL}/admin/dashboard",
+                'instructor_profile_url': f"{settings.FRONTEND_URL}/admin/instructors/{instructor.id}"
+            }
+
+            for admin in platform_admins:
+                EmailService._send_email(
+                    user=admin,
+                    email_type='instructor_bulk_activity',
+                    subject=subject,
+                    html_message=AdminEmailService._render_template('emails/platform_admin/instructor_bulk_activity.html', context),
+                    plain_message=f"Instructor {instructor.full_name} performed bulk {action} on {courses_count} courses."
+                )
+
+            logger.info(f"Instructor activity notification sent to {platform_admins.count()} platform admins")
+
+        except Exception as e:
+            logger.error(f"Failed to send instructor activity notification: {str(e)}")
+
+    @staticmethod
+    def notify_instructor_exam_created(exam, admin_user):
+        """Notify course instructor when admin creates exam for their course"""
+        try:
+            instructor = exam.course.created_by
+
+            if instructor == admin_user:
+                return  # Don't notify if admin is creating exam for their own course
+
+            subject = f"New Exam Created for Your Course: {exam.course.title}"
+            context = {
+                'exam': exam,
+                'course': exam.course,
+                'instructor': instructor,
+                'admin_user': admin_user,
+                'exam_url': f"{settings.FRONTEND_URL}/instructor/courses/{exam.course.id}/exams/{exam.id}",
+                'course_url': f"{settings.FRONTEND_URL}/instructor/courses/{exam.course.id}",
+                'created_at': timezone.now()
+            }
+
+            EmailService._send_email(
+                user=instructor,
+                email_type='exam_created_by_admin',
+                subject=subject,
+                html_message=AdminEmailService._render_template('emails/instructor/exam_created_by_admin.html', context),
+                plain_message=f"A new exam '{exam.title}' has been created for your course '{exam.course.title}'."
+            )
+
+            logger.info(f"Exam creation notification sent to instructor {instructor.email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send exam creation notification: {str(e)}")
+
+    @staticmethod
+    def notify_instructor_manual_enrollment(user, course, admin_user):
+        """Notify instructor when admin manually enrolls someone in their course"""
+        try:
+            instructor = course.created_by
+
+            if instructor == admin_user:
+                return  # Don't notify if admin is enrolling in their own course
+
+            subject = f"New Student Manually Enrolled: {course.title}"
+            context = {
+                'student': user,
+                'course': course,
+                'instructor': instructor,
+                'admin_user': admin_user,
+                'enrollment_date': timezone.now(),
+                'course_url': f"{settings.FRONTEND_URL}/instructor/courses/{course.id}",
+                'student_profile_url': f"{settings.FRONTEND_URL}/instructor/students/{user.id}"
+            }
+
+            EmailService._send_email(
+                user=instructor,
+                email_type='manual_enrollment_instructor',
+                subject=subject,
+                html_message=AdminEmailService._render_template('emails/instructor/manual_enrollment.html', context),
+                plain_message=f"{user.full_name} has been manually enrolled in your course '{course.title}'."
+            )
+
+            logger.info(f"Manual enrollment notification sent to instructor {instructor.email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send manual enrollment notification: {str(e)}")
+
+    @staticmethod
+    def notify_instructor_lesson_added(lesson, admin_user):
+        """Notify instructor when admin adds lesson to their course"""
+        try:
+            instructor = lesson.section.course.created_by
+
+            if instructor == admin_user:
+                return  # Don't notify if admin is adding lesson to their own course
+
+            subject = f"New Lesson Added to Your Course: {lesson.section.course.title}"
+            context = {
+                'lesson': lesson,
+                'section': lesson.section,
+                'course': lesson.section.course,
+                'instructor': instructor,
+                'admin_user': admin_user,
+                'lesson_url': f"{settings.FRONTEND_URL}/instructor/courses/{lesson.section.course.id}/sections/{lesson.section.id}/lessons/{lesson.id}",
+                'course_url': f"{settings.FRONTEND_URL}/instructor/courses/{lesson.section.course.id}",
+                'added_at': timezone.now()
+            }
+
+            EmailService._send_email(
+                user=instructor,
+                email_type='lesson_added_by_admin',
+                subject=subject,
+                html_message=AdminEmailService._render_template('emails/instructor/lesson_added_by_admin.html', context),
+                plain_message=f"A new lesson '{lesson.title}' has been added to your course '{lesson.section.course.title}'."
+            )
+
+            logger.info(f"Lesson addition notification sent to instructor {instructor.email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send lesson addition notification: {str(e)}")
+
+    @staticmethod
+    def notify_instructor_pricing_updated(course, admin_user, old_pricing, new_pricing):
+        """Notify instructor when admin updates their course pricing"""
+        try:
+            instructor = course.created_by
+
+            if instructor == admin_user:
+                return  # Don't notify if admin is updating their own course pricing
+
+            subject = f"Course Pricing Updated: {course.title}"
+            context = {
+                'course': course,
+                'instructor': instructor,
+                'admin_user': admin_user,
+                'old_pricing': old_pricing,
+                'new_pricing': new_pricing,
+                'updated_at': timezone.now(),
+                'course_url': f"{settings.FRONTEND_URL}/instructor/courses/{course.id}",
+                'support_email': 'support@nclexvirtualschool.com'
+            }
+
+            EmailService._send_email(
+                user=instructor,
+                email_type='pricing_updated_instructor',
+                subject=subject,
+                html_message=AdminEmailService._render_template('emails/instructor/pricing_updated.html', context),
+                plain_message=f"The pricing for your course '{course.title}' has been updated."
+            )
+
+            logger.info(f"Pricing update notification sent to instructor {instructor.email}")
+
+        except Exception as e:
+            logger.error(f"Failed to send pricing update notification: {str(e)}")
+
+    @staticmethod
+    def notify_students_pricing_changed(course, old_price, new_price):
+        """Notify enrolled students when course pricing changes (for transparency)"""
+        try:
+            # Only notify if price increased and course is still available for purchase
+            if new_price <= old_price:
+                return
+
+            enrolled_users = User.objects.filter(
+                course_progress__course=course,
+                is_active=True
+            ).distinct()
+
+            subject = f"Pricing Update: {course.title}"
+            context = {
+                'course': course,
+                'old_price': old_price,
+                'new_price': new_price,
+                'price_increase': new_price - old_price,
+                'updated_at': timezone.now(),
+                'course_url': f"{settings.FRONTEND_URL}/courses/{course.id}"
+            }
+
+            for user in enrolled_users:
+                context['user'] = user
+                EmailService._send_email(
+                    user=user,
+                    email_type='course_pricing_changed',
+                    subject=subject,
+                    html_message=AdminEmailService._render_template('emails/student/pricing_changed.html', context),
+                    plain_message=f"The pricing for '{course.title}' has been updated."
+                )
+
+            logger.info(f"Pricing change notification sent to {enrolled_users.count()} students")
+
+        except Exception as e:
+            logger.error(f"Failed to send pricing change notification: {str(e)}")
+
+    @staticmethod
+    def notify_platform_admins_pricing_updated(course, admin_user, old_pricing, new_pricing):
+        """Notify platform admins about course pricing changes"""
+        try:
+            platform_admins = User.objects.filter(
+                role='super_admin', 
+                is_superuser=True, 
+                is_active=True
+            ).exclude(id=admin_user.id)
+
+            subject = f"Course Pricing Updated: {course.title}"
+            context = {
+                'course': course,
+                'admin_user': admin_user,
+                'old_pricing': old_pricing,
+                'new_pricing': new_pricing,
+                'updated_at': timezone.now(),
+                'course_url': f"{settings.FRONTEND_URL}/admin/courses/{course.id}",
+                'admin_dashboard_url': f"{settings.FRONTEND_URL}/admin/dashboard"
+            }
+
+            for admin in platform_admins:
+                EmailService._send_email(
+                    user=admin,
+                    email_type='pricing_updated_admin',
+                    subject=subject,
+                    html_message=AdminEmailService._render_template('emails/platform_admin/pricing_updated.html', context),
+                    plain_message=f"Course pricing updated for '{course.title}' by {admin_user.full_name}."
+                )
+
+            logger.info(f"Pricing update notification sent to {platform_admins.count()} platform admins")
+
+        except Exception as e:
+            logger.error(f"Failed to send pricing update notification: {str(e)}")
+
     @staticmethod
     def get_currency_symbol(currency):
         """Get currency symbol for display"""
