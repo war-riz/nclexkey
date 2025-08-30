@@ -1,0 +1,62 @@
+{% extends "emails/base.html" %}
+
+{% block title %}New Lesson Added - NCLEX Virtual School{% endblock %}
+
+{% block header %}New Lesson Added to Your Course{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor.full_name }},</h2>
+
+<p>A new lesson has been added to your course by our administrative team.</p>
+
+<div class="alert alert-success">
+    <strong>Course:</strong> {{ course.title }}<br>
+    <strong>Section:</strong> {{ section.title }}<br>
+    <strong>Lesson:</strong> {{ lesson.title }}<br>
+    <strong>Added By:</strong> {{ admin_user.full_name }}<br>
+    <strong>Date:</strong> {{ added_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>Lesson Details:</h3>
+<ul>
+    <li><strong>Title:</strong> {{ lesson.title }}</li>
+    <li><strong>Type:</strong> {{ lesson.get_lesson_type_display }}</li>
+    {% if lesson.duration_seconds %}
+    <li><strong>Duration:</strong> {{ lesson.duration_seconds|floatformat:0 }} seconds</li>
+    {% endif %}
+    {% if lesson.lesson_type == 'video' %}
+    <li><strong>Video Source:</strong> {{ lesson.get_video_source_display }}</li>
+    {% endif %}
+    <li><strong>Status:</strong> {% if lesson.is_active %}Active{% else %}Draft{% endif %}</li>
+    <li><strong>Preview Available:</strong> {% if lesson.is_preview %}Yes{% else %}No{% endif %}</li>
+</ul>
+
+{% if lesson.description %}
+<h4>Lesson Description:</h4>
+<p>{{ lesson.description }}</p>
+{% endif %}
+
+<h3>What You Can Do:</h3>
+<ul>
+    <li>Review the lesson content and structure</li>
+    <li>Edit lesson details if needed</li>
+    <li>Update lesson settings and requirements</li>
+    <li>Monitor student engagement with this lesson</li>
+    <li>Add supplementary materials or resources</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ lesson_url }}" class="button">View Lesson</a>
+    <a href="{{ course_url }}" class="button" style="background: #6c757d; margin-left: 10px;">View Course</a>
+</div>
+
+<p>This lesson has been added to enhance your course content and provide additional value to your students.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School Team</strong></p>
+
+<div class="alert">
+    <strong>Questions About This Lesson?</strong><br>
+    Review the lesson in your dashboard or contact support for assistance.
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Course Deactivated - NCLEX Virtual School{% endblock %}
+
+{% block header %}Course Deactivation Notice{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor.full_name }},</h2>
+
+<p>We need to inform you that your course has been temporarily deactivated by our administrative team.</p>
+
+<div class="alert alert-danger">
+    <strong>Course:</strong> {{ course.title }}<br>
+    <strong>Course Type:</strong> {{ course.get_course_type_display }}<br>
+    <strong>Deactivated By:</strong> {{ admin_user.full_name }}<br>
+    <strong>Date:</strong> {{ deactivated_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>What This Means:</h3>
+<ul>
+    <li>Your course is temporarily unavailable to students</li>
+    <li>Existing enrollments and student progress are preserved</li>
+    <li>No new enrollments can be made during deactivation</li>
+    <li>All course content and materials remain intact</li>
+</ul>
+
+<h3>Why Was Your Course Deactivated?</h3>
+<p>Courses may be deactivated for various reasons including:</p>
+<ul>
+    <li>Administrative review for quality assurance</li>
+    <li>Content policy compliance check</li>
+    <li>Technical issues requiring resolution</li>
+    <li>Update to platform guidelines</li>
+</ul>
+
+<h3>Next Steps:</h3>
+<ul>
+    <li>Review your course content for any potential issues</li>
+    <li>Ensure all materials comply with our content guidelines</li>
+    <li>Wait for administrative review to complete</li>
+    <li>You will be notified when the course is reactivated</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ course_url }}" class="button">View Your Course</a>
+    <a href="{{ appeal_url }}" class="button" style="background: #dc3545; margin-left: 10px;">Submit Appeal</a>
+</div>
+
+<p>If you believe this deactivation was made in error or have questions about the reason, you can submit an appeal through your instructor dashboard.</p>
+
+<p>We appreciate your understanding and cooperation.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School Team</strong></p>
+
+<div class="alert">
+    <strong>Need Help?</strong><br>
+    Contact us at <a href="mailto:{{ support_email }}">{{ support_email }}</a>
+</div>
+{% endblock %}

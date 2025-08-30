@@ -1,0 +1,78 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Courses {{ action_past_tense|title }} - NCLEX Virtual School{% endblock %}
+
+{% block header %}Bulk Course Action Notification{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor.full_name }},</h2>
+
+<p>We want to inform you that {{ courses_count }} of your courses have been {{ action_past_tense }} by our administrative team.</p>
+
+<div class="alert {% if action == 'activate' %}alert-success{% elif action == 'deactivate' %}alert-danger{% else %}alert{% endif %}">
+    <strong>Action Performed:</strong> {{ action_past_tense|title }}<br>
+    <strong>Performed By:</strong> {{ admin_user.full_name }} ({{ admin_user.email }})<br>
+    <strong>Date:</strong> {{ action_date|date:"F d, Y at g:i A" }}<br>
+    <strong>Courses Affected:</strong> {{ courses_count }}
+</div>
+
+<h3>Affected Courses:</h3>
+<ul>
+    {% for course in courses %}
+    <li>
+        <strong>{{ course.title }}</strong> 
+        <span class="exam-pill exam-type-{{ course.course_type }}">{{ course.course_type|title }}</span>
+    </li>
+    {% endfor %}
+</ul>
+
+{% if action == 'activate' %}
+<h3>What This Means:</h3>
+<ul>
+    <li>Your courses are now visible to students</li>
+    <li>Students can enroll and access course content</li>
+    <li>You can manage and update these courses normally</li>
+    <li>Course analytics and reporting are active</li>
+</ul>
+{% elif action == 'deactivate' %}
+<h3>What This Means:</h3>
+<ul>
+    <li>Your courses are temporarily hidden from students</li>
+    <li>Existing enrollments and progress are preserved</li>
+    <li>No new enrollments can be made</li>
+    <li>Students cannot access course content until reactivated</li>
+</ul>
+{% elif action == 'feature' %}
+<h3>What This Means:</h3>
+<ul>
+    <li>Your courses are now featured on the platform</li>
+    <li>They will receive increased visibility to students</li>
+    <li>Featured courses appear in promotional sections</li>
+    <li>This may increase enrollment opportunities</li>
+</ul>
+{% elif action == 'apply_discount' %}
+<h3>What This Means:</h3>
+<ul>
+    <li>A discount has been applied to your courses</li>
+    <li>The promotional pricing is now active</li>
+    <li>Students will see the discounted price</li>
+    <li>This may increase enrollment opportunities</li>
+</ul>
+{% endif %}
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ instructor_dashboard_url }}" class="button">View Your Dashboard</a>
+</div>
+
+<p>If you have any questions about this action or need clarification on how it affects your courses, please contact our support team.</p>
+
+<p>Thank you for being part of NCLEX Virtual School.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School Team</strong></p>
+
+<div class="alert">
+    <strong>Questions?</strong><br>
+    Contact us at <a href="mailto:{{ support_email }}">{{ support_email }}</a>
+</div>
+{% endblock %}

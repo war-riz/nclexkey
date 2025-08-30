@@ -1,0 +1,58 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Course Updated - NCLEX Virtual School{% endblock %}
+
+{% block header %}Course Update Notification{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor.full_name }},</h2>
+
+<p>We wanted to inform you that your course <strong>"{{ course.title }}"</strong> has been updated by our administrative team.</p>
+
+<div class="alert alert-success">
+    <strong>Course Updated By:</strong> {{ admin_user.full_name }} ({{ admin_user.email }})<br>
+    <strong>Update Date:</strong> {{ updated_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>Changes Made to Your Course:</h3>
+<ul>
+    {% for change in changes %}
+    <li>
+        <strong>{{ change.field|title }}:</strong> 
+        {% if change.field == 'price' %}
+            Changed from ${{ change.old_value }} to ${{ change.new_value }}
+        {% elif change.field == 'is_active' %}
+            {% if change.new_value %}
+                Course has been activated
+            {% else %}
+                Course has been deactivated
+            {% endif %}
+        {% elif change.field == 'course_type' %}
+            Changed from {{ change.old_value|title }} to {{ change.new_value|title }}
+        {% elif change.field == 'has_discount' %}
+            {% if change.new_value %}
+                Discount has been applied
+            {% else %}
+                Discount has been removed
+            {% endif %}
+        {% else %}
+            Changed from "{{ change.old_value }}" to "{{ change.new_value }}"
+        {% endif %}
+    </li>
+    {% endfor %}
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ course_url }}" class="button">View Your Course</a>
+</div>
+
+<p>If you have any questions about these changes or need clarification, please don't hesitate to contact our support team.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School Team</strong></p>
+
+<div class="alert">
+    <strong>Need Help?</strong><br>
+    Contact us at <a href="mailto:{{ support_email }}">{{ support_email }}</a>
+</div>
+{% endblock %}

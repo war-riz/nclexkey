@@ -1,0 +1,57 @@
+{% extends "emails/base.html" %}
+
+{% block title %}New Exam Created - NCLEX Virtual School{% endblock %}
+
+{% block header %}New Exam Added to Your Course{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor.full_name }},</h2>
+
+<p>We wanted to let you know that a new exam has been created for your course by our administrative team.</p>
+
+<div class="alert alert-success">
+    <strong>Course:</strong> {{ course.title }}<br>
+    <strong>Exam Title:</strong> {{ exam.title }}<br>
+    <strong>Created By:</strong> {{ admin_user.full_name }}<br>
+    <strong>Date:</strong> {{ created_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>Exam Details:</h3>
+<ul>
+    <li><strong>Type:</strong> 
+        <span class="exam-pill exam-type-{{ exam.exam_type }}">{{ exam.get_exam_type_display }}</span>
+    </li>
+    <li><strong>Duration:</strong> {{ exam.time_limit_minutes }} minutes</li>
+    <li><strong>Passing Score:</strong> {{ exam.passing_score }}%</li>
+    <li><strong>Max Attempts:</strong> {% if exam.max_attempts %}{{ exam.max_attempts }}{% else %}Unlimited{% endif %}</li>
+    <li><strong>Status:</strong> {% if exam.is_published %}Published{% else %}Draft{% endif %}</li>
+</ul>
+
+{% if exam.description %}
+<h4>Exam Description:</h4>
+<p>{{ exam.description }}</p>
+{% endif %}
+
+<h3>What You Can Do:</h3>
+<ul>
+    <li>Review the exam questions and structure</li>
+    <li>Add or modify questions if needed</li>
+    <li>Update exam settings and requirements</li>
+    <li>Monitor student performance and analytics</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ exam_url }}" class="button">View Exam</a>
+    <a href="{{ course_url }}" class="button" style="background: #6c757d; margin-left: 10px;">View Course</a>
+</div>
+
+<p>This exam has been added to help enhance your course content and provide better assessment opportunities for your students.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School Team</strong></p>
+
+<div class="alert">
+    <strong>Questions About This Exam?</strong><br>
+    Contact the admin team or review the exam details in your dashboard.
+</div>
+{% endblock %}

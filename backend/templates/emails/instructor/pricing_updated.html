@@ -1,0 +1,64 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Course Pricing Updated - NCLEX Virtual School{% endblock %}
+
+{% block header %}Course Pricing Update{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor.full_name }},</h2>
+
+<p>The pricing for your course has been updated by our administrative team.</p>
+
+<div class="alert">
+    <strong>Course:</strong> {{ course.title }}<br>
+    <strong>Updated By:</strong> {{ admin_user.full_name }}<br>
+    <strong>Date:</strong> {{ updated_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>Pricing Changes:</h3>
+<ul>
+    <li><strong>Course Type:</strong> {{ old_pricing.course_type|title }} → {{ new_pricing.course_type|title }}</li>
+    <li><strong>Price:</strong> {{ old_pricing.currency }} {{ old_pricing.price }} → {{ new_pricing.currency }} {{ new_pricing.price }}</li>
+    {% if new_pricing.has_discount %}
+    <li><strong>Discount:</strong> {{ new_pricing.discount_percentage }}% 
+        {% if new_pricing.discount_start_date %}(Valid from {{ new_pricing.discount_start_date|date:"M d, Y" }}{% endif %}
+        {% if new_pricing.discount_end_date %} until {{ new_pricing.discount_end_date|date:"M d, Y" }}){% endif %}
+    </li>
+    {% endif %}
+</ul>
+
+<h3>Impact on Your Course:</h3>
+<ul>
+    {% if new_pricing.course_type == 'free' and old_pricing.course_type != 'free' %}
+    <li>Your course is now available for free to all students</li>
+    <li>This may significantly increase enrollment</li>
+    {% elif new_pricing.course_type != 'free' and old_pricing.course_type == 'free' %}
+    <li>Your course now requires payment for enrollment</li>
+    <li>Current enrolled students retain access</li>
+    {% elif new_pricing.price > old_pricing.price %}
+    <li>Course price has been increased</li>
+    <li>Current students are not affected</li>
+    {% elif new_pricing.price < old_pricing.price %}
+    <li>Course price has been reduced</li>
+    <li>This may increase new enrollments</li>
+    {% endif %}
+    <li>All existing student enrollments remain unaffected</li>
+    <li>Revenue sharing calculations will use the new pricing</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ course_url }}" class="button">View Your Course</a>
+</div>
+
+<p>These pricing adjustments are made to optimize course performance and align with platform strategy.</p>
+
+<p>If you have questions about this pricing update, please contact our support team.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School Team</strong></p>
+
+<div class="alert">
+    <strong>Questions About Pricing?</strong><br>
+    Contact us at <a href="mailto:{{ support_email }}">{{ support_email }}</a>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "emails/base.html" %}
+
+{% block title %}New Student Enrolled - NCLEX Virtual School{% endblock %}
+
+{% block header %}New Student Enrollment{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor.full_name }},</h2>
+
+<p>A new student has been manually enrolled in your course by our administrative team.</p>
+
+<div class="alert alert-success">
+    <strong>Student:</strong> {{ student.full_name }} ({{ student.email }})<br>
+    <strong>Course:</strong> {{ course.title }}<br>
+    <strong>Enrolled By:</strong> {{ admin_user.full_name }}<br>
+    <strong>Enrollment Date:</strong> {{ enrollment_date|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>Student Information:</h3>
+<ul>
+    <li><strong>Name:</strong> {{ student.full_name }}</li>
+    <li><strong>Email:</strong> {{ student.email }}</li>
+    <li><strong>Phone:</strong> {% if student.phone %}{{ student.phone }}{% else %}Not provided{% endif %}</li>
+    <li><strong>Registration Date:</strong> {{ student.date_joined|date:"F d, Y" }}</li>
+</ul>
+
+<h3>Course Details:</h3>
+<ul>
+    <li><strong>Course:</strong> {{ course.title }}</li>
+    <li><strong>Type:</strong> <span class="exam-pill exam-type-{{ course.course_type }}">{{ course.get_course_type_display }}</span></li>
+    <li><strong>Category:</strong> {{ course.category|title }}</li>
+    {% if not course.is_free %}
+    <li><strong>Price:</strong> {{ course.currency }} {{ course.get_effective_price }}</li>
+    {% endif %}
+</ul>
+
+<h3>What You Can Do:</h3>
+<ul>
+    <li>Welcome the new student to your course</li>
+    <li>Monitor their progress through your instructor dashboard</li>
+    <li>Provide additional support if needed</li>
+    <li>Answer any questions they may have about the course content</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ student_profile_url }}" class="button">View Student Profile</a>
+    <a href="{{ course_url }}" class="button" style="background: #6c757d; margin-left: 10px;">View Course</a>
+</div>
+
+<p>This manual enrollment was processed to provide the student with immediate access to your course content.</p>
+
+<p>Thank you for providing quality education to our students.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School Team</strong></p>
+
+<div class="alert">
+    <strong>Need Help?</strong><br>
+    Access your instructor tools or contact support for assistance.
+</div>
+{% endblock %}

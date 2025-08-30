@@ -1,0 +1,58 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Course Deleted - NCLEX Virtual School{% endblock %}
+
+{% block header %}Course Deletion Notice{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor.full_name }},</h2>
+
+<p>We need to inform you that your course has been permanently removed from our platform.</p>
+
+<div class="alert alert-danger">
+    <strong>Course:</strong> {{ course_title }}<br>
+    <strong>Deleted By:</strong> {{ admin_user.full_name }}<br>
+    <strong>Date:</strong> {{ deleted_at|date:"F d, Y at g:i A" }}
+</div>
+
+<h3>What This Means:</h3>
+<ul>
+    <li>The course has been permanently removed from the platform</li>
+    <li>All course content, lessons, and materials have been deleted</li>
+    <li>Student enrollments and progress data have been archived</li>
+    <li>The course cannot be restored</li>
+</ul>
+
+<h3>Why Was Your Course Deleted?</h3>
+<p>Courses are only permanently deleted when they have no active student enrollments or completed payments, and typically for reasons such as:</p>
+<ul>
+    <li>Violation of platform content policies</li>
+    <li>Copyright or intellectual property issues</li>
+    <li>Quality standards not met after review</li>
+    <li>Duplicate or outdated content</li>
+</ul>
+
+<h3>Moving Forward:</h3>
+<ul>
+    <li>You can create new courses that comply with our guidelines</li>
+    <li>Review our content policy and quality standards</li>
+    <li>Contact support if you need clarification on platform requirements</li>
+    <li>All your other courses (if any) remain unaffected</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+    <a href="{{ create_new_course_url }}" class="button">Create New Course</a>
+</div>
+
+<p>If you believe this deletion was made in error, please contact our support team immediately with details about your course.</p>
+
+<p>We encourage you to continue creating quality educational content that helps nursing students succeed.</p>
+
+<p>Best regards,<br>
+<strong>NCLEX Virtual School Team</strong></p>
+
+<div class="alert">
+    <strong>Need Support?</strong><br>
+    Contact us at <a href="mailto:{{ support_email }}">{{ support_email }}</a>
+</div>
+{% endblock %}
