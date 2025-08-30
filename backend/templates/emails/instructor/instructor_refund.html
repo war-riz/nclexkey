@@ -1,0 +1,44 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Refund Processed - Impact on Your Earnings{% endblock %}
+
+{% block header %}Refund Notification{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor_name }},</h2>
+
+<p>We wanted to notify you about a refund that has been processed for one of your courses, which may impact your earnings.</p>
+
+<div class="alert alert-warning">
+    <strong>Refund Details:</strong>
+    <p><strong>Student:</strong> {{ student_name }}</p>
+    <p><strong>Course:</strong> {{ course_title }}</p>
+    <p><strong>Refund Amount:</strong> ₦{{ refund_amount:floatformat:2 }}</p>
+    <p><strong>Your Share Impact:</strong> ₦{{ instructor_impact:floatformat:2 }}</p>
+    <p><strong>Payment Reference:</strong> {{ payment_reference }}</p>
+    <p><strong>Refund Date:</strong> {{ refund_date|date:"F d, Y at g:i A" }}</p>
+</div>
+
+<h3>What This Means</h3>
+<p>The refund amount that affects your earnings (₦{{ instructor_impact:floatformat:2 }}) will be deducted from your next payout. This is calculated based on your instructor revenue share from the original sale.</p>
+
+{% if reason %}
+<h3>Refund Reason</h3>
+<p>{{ reason }}</p>
+{% endif %}
+
+<h3>Next Steps</h3>
+<ul>
+    <li>This deduction will be reflected in your next monthly payout statement</li>
+    <li>You can view your detailed earnings in your instructor dashboard</li>
+    <li>If you have questions about this refund, please contact our support team</li>
+</ul>
+
+<p>We understand that refunds can be disappointing, but they help us maintain student trust and satisfaction on our platform. Thank you for your understanding.</p>
+
+<a href="{{ dashboard_url }}" class="button">View Dashboard</a>
+
+<p>If you have any questions or concerns about this refund, please don't hesitate to reach out to our instructor support team.</p>
+
+<p>Best regards,<br>The NCLEX Virtual School Team</p>
+{% endblock %}

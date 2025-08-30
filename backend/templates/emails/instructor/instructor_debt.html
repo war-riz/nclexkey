@@ -1,0 +1,60 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Outstanding Refund Debt Notice{% endblock %}
+
+{% block header %}Payment Notice{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor_name }},</h2>
+
+<p>This is to inform you about an outstanding refund debt on your instructor account that requires your attention.</p>
+
+<div class="alert alert-danger">
+    <strong>Outstanding Debt Details:</strong>
+    <p><strong>Debt Amount:</strong> ₦{{ debt_amount:floatformat:2 }}</p>
+    <p><strong>Related to:</strong> Course refund processed</p>
+    <p><strong>Status:</strong> Awaiting deduction from future payouts</p>
+</div>
+
+<h3>What Happened</h3>
+<p>A refund was processed for one of your courses, but you don't currently have sufficient payout balance to cover your share of the refund. This has resulted in an outstanding debt balance.</p>
+
+<h3>Refund Details</h3>
+<div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0;">
+    {% if refund_details %}
+    <p><strong>Course:</strong> {{ refund_details.payment.course.title }}</p>
+    <p><strong>Student:</strong> {{ refund_details.user.full_name }}</p>
+    <p><strong>Refund Amount:</strong> ₦{{ refund_details.amount:floatformat:2 }}</p>
+    <p><strong>Your Share:</strong> ₦{{ debt_amount:floatformat:2 }}</p>
+    <p><strong>Refund Date:</strong> {{ refund_details.completed_at|date:"F d, Y" }}</p>
+    {% endif %}
+</div>
+
+<h3>How This Will Be Resolved</h3>
+<p><strong>{{ next_steps }}</strong></p>
+
+<ul>
+    <li>This debt amount will be automatically deducted from your future course sales and payouts</li>
+    <li>You can track this debt balance in your instructor dashboard under "Earnings" → "Debt Balance"</li>
+    <li>Once you have sufficient earnings, the debt will be cleared automatically</li>
+    <li>Your regular payout schedule will resume once the debt is settled</li>
+</ul>
+
+<div class="alert">
+    <strong>Important:</strong> This debt does not affect your ability to create courses or receive new enrollments. It only impacts payout processing until the balance is cleared.
+</div>
+
+<h3>Need Help?</h3>
+<p>If you have questions about this debt or the refund process, our instructor support team is here to help:</p>
+<ul>
+    <li>Review the refund details in your dashboard</li>
+    <li>Contact support for clarification on the refund reason</li>
+    <li>Get guidance on preventing future refunds</li>
+</ul>
+
+<a href="{{ dashboard_url | default:'/instructor/dashboard' }}" class="button">View Dashboard</a>
+
+<p>Thank you for your understanding. We're committed to maintaining a fair and transparent refund process for all parties.</p>
+
+<p>Best regards,<br>The NCLEX Virtual School Finance Team</p>
+{% endblock %}

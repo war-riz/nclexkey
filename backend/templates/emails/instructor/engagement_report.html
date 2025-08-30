@@ -1,0 +1,60 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Your Teaching Impact Report{% endblock %}
+{% block header %}Teaching Impact{% endblock %}
+
+{% block content %}
+<h2>Hello {{ instructor_name }},</h2>
+
+<p>Here's your weekly teaching impact summary for {{ period }}.</p>
+
+<div style="display: grid; gap: 15px; margin: 20px 0;">
+    <div style="background-color: #e8f5e9; padding: 15px; border-radius: 8px;">
+        <h4 style="color: #2e7d32; margin: 0;">Course Views</h4>
+        <p style="font-size: 20px; font-weight: bold; margin: 5px 0;">{{ course_views }}</p>
+    </div>
+    
+    <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px;">
+        <h4 style="color: #1976d2; margin: 0;">New Enrollments</h4>
+        <p style="font-size: 20px; font-weight: bold; margin: 5px 0;">{{ new_enrollments }}</p>
+    </div>
+    
+    <div style="background-color: #fce4ec; padding: 15px; border-radius: 8px;">
+        <h4 style="color: #c2185b; margin: 0;">Student Interactions</h4>
+        <p style="font-size: 20px; font-weight: bold; margin: 5px 0;">{{ student_interactions }}</p>
+    </div>
+</div>
+
+<h3>Performance Metrics</h3>
+<ul>
+    <li><strong>Course Completion Rate:</strong> {{ completion_rate }}%</li>
+    <li><strong>Average Rating:</strong> {{ avg_rating|floatformat:1 }}/5.0</li>
+    <li><strong>Student Satisfaction:</strong> 
+        {% if avg_rating >= 4.5 %}Excellent{% elif avg_rating >= 4.0 %}Very Good{% elif avg_rating >= 3.5 %}Good{% else %}Needs Improvement{% endif %}
+    </li>
+</ul>
+
+{% if insights %}
+<h3>Key Insights</h3>
+<ul>
+    {% for insight in insights %}
+    <li>{{ insight }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+{% if recommendations %}
+<h3>Recommendations</h3>
+<ul>
+    {% for rec in recommendations %}
+    <li>{{ rec }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<a href="{{ dashboard_url }}" class="button">View Detailed Analytics</a>
+
+<p>Keep up the great work! Your dedication to teaching makes a real difference in your students' learning journey.</p>
+
+<p>Best regards,<br>The NCLEX Virtual School Team</p>
+{% endblock %}
