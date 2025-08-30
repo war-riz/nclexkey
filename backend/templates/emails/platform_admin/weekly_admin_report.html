@@ -1,0 +1,56 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Weekly Platform Report{% endblock %}
+{% block header %}Weekly Report{% endblock %}
+
+{% block content %}
+<h2>Weekly Platform Report</h2>
+
+<p>Here's your weekly summary of platform activities from {{ week_start|date:"M d" }} to {{ week_end|date:"M d, Y" }}.</p>
+
+<h3>User Activity</h3>
+<ul>
+    <li><strong>New Registrations:</strong> {{ stats.new_users }}</li>
+    <li><strong>Active Users:</strong> {{ stats.active_users }}</li>
+    <li><strong>Account Deletions:</strong> {{ stats.deleted_accounts }}</li>
+    <li><strong>Failed Login Attempts:</strong> {{ stats.failed_logins }}</li>
+</ul>
+
+<h3>Course Activity</h3>
+<ul>
+    <li><strong>New Courses:</strong> {{ stats.new_courses }}</li>
+    <li><strong>Course Enrollments:</strong> {{ stats.new_enrollments }}</li>
+    <li><strong>Courses Pending Review:</strong> {{ stats.pending_courses }}</li>
+    <li><strong>Course Appeals:</strong> {{ stats.new_appeals }}</li>
+</ul>
+
+<h3>Financial Summary</h3>
+<ul>
+    <li><strong>Total Revenue:</strong> ₦{{ stats.total_revenue:floatformat:2 }}</li>
+    <li><strong>Instructor Payouts:</strong> ₦{{ stats.instructor_payouts:floatformat:2 }}</li>
+    <li><strong>Refunds Processed:</strong> ₦{{ stats.refunds_processed:floatformat:2 }}</li>
+    <li><strong>Pending Refunds:</strong> {{ stats.pending_refunds }}</li>
+</ul>
+
+<h3>System Health</h3>
+<ul>
+    <li><strong>Failed Email Deliveries:</strong> {{ stats.failed_emails }}</li>
+    <li><strong>Database Size:</strong> {{ stats.database_size }}</li>
+    <li><strong>Cleanup Operations:</strong> {{ stats.cleanup_operations }}</li>
+</ul>
+
+{% if stats.urgent_items %}
+<div class="alert alert-danger">
+    <strong>Items Requiring Attention:</strong>
+    <ul>
+        {% for item in stats.urgent_items %}
+        <li>{{ item }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<a href="{{ admin_dashboard_url }}" class="button">View Full Dashboard</a>
+
+<p>Best regards,<br>System Administrator</p>
+{% endblock %}

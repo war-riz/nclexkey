@@ -1,0 +1,51 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Maintenance Complete{% endblock %}
+{% block header %}System Maintenance Report{% endblock %}
+
+{% block content %}
+<h2>Scheduled Maintenance Completed</h2>
+
+<p>The scheduled system maintenance has been completed successfully at {{ completion_time|date:"F d, Y at g:i A T" }}.</p>
+
+<h3>Operations Performed</h3>
+<div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin: 15px 0;">
+    {% for operation in operations %}
+    <p><strong>{{ operation.name }}:</strong> 
+        <span style="color: {% if operation.success %}#28a745{% else %}#dc3545{% endif %};">
+            {{ operation.result }}
+        </span>
+    </p>
+    {% endfor %}
+</div>
+
+<h3>Cleanup Statistics</h3>
+<ul>
+    <li><strong>Expired tokens removed:</strong> {{ stats.tokens_cleaned|default:0 }}</li>
+    <li><strong>Inactive sessions cleaned:</strong> {{ stats.sessions_cleaned|default:0 }}</li>
+    <li><strong>Old login attempts archived:</strong> {{ stats.login_attempts_cleaned|default:0 }}</li>
+    <li><strong>Email logs archived:</strong> {{ stats.email_logs_cleaned|default:0 }}</li>
+    <li><strong>Database optimized:</strong> {{ stats.db_optimization_result|default:"N/A" }}</li>
+</ul>
+
+{% if errors %}
+<div class="alert alert-danger">
+    <strong>Issues Encountered:</strong>
+    <ul>
+        {% for error in errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<h3>System Status</h3>
+<div class="alert alert-success">
+    <p>✅ All systems are operating normally</p>
+    <p><strong>Next scheduled maintenance:</strong> {{ next_maintenance|date:"F d, Y at g:i A" }}</p>
+</div>
+
+<a href="{{ dashboard_url }}" class="button">View System Dashboard</a>
+
+<p>This maintenance report was generated automatically.</p>
+{% endblock %}

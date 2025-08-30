@@ -1,0 +1,46 @@
+{% extends "emails/base.html" %}
+
+{% block title %}🚨 SECURITY ALERT{% endblock %}
+{% block header %}SECURITY ALERT{% endblock %}
+
+{% block content %}
+<h2>URGENT: Security Alert Detected</h2>
+
+<p>Hello {{ admin_name }},</p>
+
+<div class="alert alert-danger">
+    <strong>Fraud Detection Alert</strong>
+    <p><strong>Type:</strong> {{ fraud_type }}</p>
+    <p><strong>Severity:</strong> {{ severity|upper }}</p>
+    <p><strong>Detected:</strong> {{ timestamp|date:"F d, Y at g:i A T" }}</p>
+</div>
+
+<h3>Details</h3>
+<div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0;">
+    {{ details }}
+</div>
+
+{% if affected_accounts %}
+<h3>Affected Accounts</h3>
+<ul>
+    {% for account in affected_accounts %}
+    <li><strong>{{ account.email }}</strong> - {{ account.risk_level }}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<h3>Recommended Actions</h3>
+<ul>
+    {% for action in recommended_actions %}
+    <li>{{ action }}</li>
+    {% empty %}
+    <li>Review security dashboard immediately</li>
+    <li>Monitor affected accounts closely</li>
+    <li>Consider implementing temporary restrictions</li>
+    {% endfor %}
+</ul>
+
+<a href="{{ security_dashboard_url }}" class="button" style="background-color: #dc3545;">View Security Dashboard</a>
+
+<p><strong>This alert requires immediate attention.</strong></p>
+{% endblock %}

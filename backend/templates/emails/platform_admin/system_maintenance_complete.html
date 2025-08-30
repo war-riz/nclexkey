@@ -1,0 +1,38 @@
+{% extends "emails/base.html" %}
+
+{% block title %}System Maintenance Complete{% endblock %}
+{% block header %}Maintenance Report{% endblock %}
+
+{% block content %}
+<h2>Scheduled Maintenance Completed</h2>
+
+<p>The scheduled system maintenance has been completed successfully.</p>
+
+<h3>Operations Performed</h3>
+<ul>
+    {% for operation in maintenance_summary.operations %}
+    <li><strong>{{ operation.name }}:</strong> {{ operation.result }}</li>
+    {% endfor %}
+</ul>
+
+<h3>Cleanup Statistics</h3>
+<ul>
+    <li><strong>Expired tokens removed:</strong> {{ maintenance_summary.tokens_cleaned }}</li>
+    <li><strong>Old sessions cleaned:</strong> {{ maintenance_summary.sessions_cleaned }}</li>
+    <li><strong>Login attempts archived:</strong> {{ maintenance_summary.login_attempts_cleaned }}</li>
+    <li><strong>Email logs archived:</strong> {{ maintenance_summary.email_logs_cleaned }}</li>
+</ul>
+
+{% if maintenance_summary.errors %}
+<div class="alert alert-danger">
+    <strong>Issues Encountered:</strong>
+    <ul>
+        {% for error in maintenance_summary.errors %}
+        <li>{{ error }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<p>System is running normally. Next scheduled maintenance: {{ next_maintenance|date:"F d, Y" }}.</p>
+{% endblock %}

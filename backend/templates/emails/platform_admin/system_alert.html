@@ -1,0 +1,37 @@
+{% extends "emails/base.html" %}
+
+{% block title %}🚨 System Alert{% endblock %}
+{% block header %}System Alert{% endblock %}
+
+{% block content %}
+<h2>System Alert: {{ alert_type }}</h2>
+
+<p>Hello {{ admin_name }},</p>
+
+<div class="alert alert-danger">
+    <strong>Alert Details:</strong>
+    <p>{{ message }}</p>
+    <p><strong>Time:</strong> {{ timestamp|date:"F d, Y at g:i A T" }}</p>
+</div>
+
+<h3>Immediate Actions Required</h3>
+<ul>
+    <li>Review the system dashboard for detailed metrics</li>
+    <li>Check related logs and monitoring systems</li>
+    <li>Consider implementing temporary measures if needed</li>
+    <li>Monitor the situation closely</li>
+</ul>
+
+<a href="{{ dashboard_url }}" class="button" style="background-color: #dc3545;">View Dashboard</a>
+
+<h3>Contact Information</h3>
+<p>If this requires immediate attention outside business hours:</p>
+<ul>
+    <li>Emergency contact: +1-XXX-XXX-XXXX</li>
+    <li>Backup admin: backup-admin@nclexvirtualschool.com</li>
+</ul>
+
+<p>This is an automated alert from the system monitoring service.</p>
+
+<p>Best regards,<br>System Monitoring Service</p>
+{% endblock %}
