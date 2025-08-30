@@ -1,0 +1,37 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Continue Your Learning Journey{% endblock %}
+{% block header %}Keep Learning!{% endblock %}
+
+{% block content %}
+<h2>Hello {{ student_name }},</h2>
+
+<p>We noticed you haven't visited your courses in a while. Don't let your momentum slip away!</p>
+
+<h3>Your Course Progress</h3>
+{% for course in courses %}
+<div style="border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin: 15px 0;">
+    <h4 style="margin-top: 0;">{{ course.title }}</h4>
+    <div style="background-color: #e9ecef; border-radius: 10px; height: 8px; margin: 10px 0;">
+        <div style="background-color: #28a745; height: 8px; border-radius: 10px; width: {{ course.progress_percentage }}%;"></div>
+    </div>
+    <p><strong>Progress:</strong> {{ course.progress_percentage }}% complete</p>
+    <p><strong>Last accessed:</strong> {{ course.last_accessed|date:"F d, Y" }}</p>
+    <p><strong>Next lesson:</strong> {{ course.next_lesson_title }}</p>
+</div>
+{% endfor %}
+
+<h3>Why Continue Now?</h3>
+<ul>
+    <li>Research shows consistent learning leads to better retention</li>
+    <li>You're {{ average_progress }}% through your courses - don't stop now!</li>
+    <li>Complete courses to earn your certificates</li>
+    <li>Stay on track with your learning goals</li>
+</ul>
+
+<a href="{{ continue_learning_url }}" class="button">Continue Learning</a>
+
+<p>Remember, every small step brings you closer to your goals. We're here to support you every step of the way!</p>
+
+<p>Best regards,<br>The NCLEX Virtual School Team</p>
+{% endblock %}

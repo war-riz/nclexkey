@@ -1,0 +1,29 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Welcome to {{ platform_name }}!{% endblock %}
+{% block header %}Welcome!{% endblock %}
+
+{% block content %}
+<h2>Welcome to {{ platform_name }}, {{ user_name }}!</h2>
+
+<p>We're thrilled to have you join our community of learners and educators. You've just taken the first step toward achieving your professional goals!</p>
+
+<h3>What You Can Do Right Now</h3>
+<ul>
+    <li><strong>Complete Your Profile:</strong> Add your information and learning preferences</li>
+    <li><strong>Browse Our Courses:</strong> Explore hundreds of high-quality courses</li>
+    <li><strong>Set Your Goals:</strong> Tell us what you want to achieve</li>
+    <li><strong>Join the Community:</strong> Connect with fellow learners</li>
+</ul>
+
+<div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <h4 style="color: #2e7d32; margin-top: 0;">🎯 Quick Start Tip</h4>
+    <p>Start with our most popular beginner course to get familiar with the platform. Most students complete their first lesson within 24 hours!</p>
+</div>
+
+<a href="{{ courses_url }}" class="button">Explore Courses</a>
+
+<p>Over the next few days, we'll send you helpful tips to make the most of your learning experience. If you have any questions, just reply to this email!</p>
+
+<p>Happy learning!<br>The {{ platform_name }} Team</p>
+{% endblock %}

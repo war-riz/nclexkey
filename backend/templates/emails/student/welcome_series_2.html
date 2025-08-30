@@ -1,0 +1,31 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Find Your Perfect Course{% endblock %}
+{% block header %}Course Discovery{% endblock %}
+
+{% block content %}
+<h2>Ready to start learning, {{ user_name }}?</h2>
+
+<p>It's been a few days since you joined us, and we wanted to help you find the perfect course to begin your learning journey.</p>
+
+<h3>How to Choose the Right Course</h3>
+<ul>
+    <li><strong>Start with your goals:</strong> What do you want to achieve?</li>
+    <li><strong>Check the difficulty level:</strong> Match it to your current knowledge</li>
+    <li><strong>Read student reviews:</strong> See what others are saying</li>
+    <li><strong>Preview the content:</strong> Make sure it covers what you need</li>
+</ul>
+
+<div style="background-color: #e3f2fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <h4 style="color: #1976d2; margin-top: 0;">💡 Pro Tip</h4>
+    <p>Our most successful students start with courses that challenge them just enough - not too easy, not too hard. Look for courses marked as "Recommended for you"!</p>
+</div>
+
+<a href="{{ courses_url }}" class="button">Browse All Courses</a>
+
+<p>Still not sure where to start? Check out our learning paths - curated sequences of courses designed to take you from beginner to expert.</p>
+
+<p>Questions? Just hit reply - we're here to help!</p>
+
+<p>Happy learning,<br>The {{ platform_name }} Team</p>
+{% endblock %}

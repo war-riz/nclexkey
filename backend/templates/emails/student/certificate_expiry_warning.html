@@ -1,0 +1,37 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Certificate Expiry Notice{% endblock %}
+{% block header %}Certificate Expiry{% endblock %}
+
+{% block content %}
+<h2>Hello {{ user_name }},</h2>
+
+<p>We wanted to notify you that some of your certificates are approaching their expiry dates.</p>
+
+<h3>Certificates Expiring Soon</h3>
+{% for cert in certificates %}
+<div style="border: 1px solid #ffc107; border-radius: 8px; padding: 15px; margin: 15px 0; background-color: #fff3cd;">
+    <h4 style="color: #856404; margin-top: 0;">{{ cert.course_title }}</h4>
+    <p><strong>Certificate ID:</strong> {{ cert.certificate_number }}</p>
+    <p><strong>Issued:</strong> {{ cert.issued_at|date:"F d, Y" }}</p>
+    <p><strong>Expires:</strong> {{ cert.expires_at|date:"F d, Y" }}</p>
+    <p><strong>Days Remaining:</strong> {{ cert.days_until_expiry }}</p>
+</div>
+{% endfor %}
+
+<h3>How to Renew</h3>
+<p>To maintain your certification status, you can:</p>
+<ul>
+    <li>Retake the course examination</li>
+    <li>Complete continuing education requirements</li>
+    <li>Attend renewal workshops</li>
+</ul>
+
+<a href="{{ renewal_url }}" class="button">Renew Certificates</a>
+
+<p>Don't let your hard work expire! Renew your certificates before {{ certificates.0.expires_at|date:"F d, Y" }} to maintain your professional credentials.</p>
+
+<p>Questions? Contact us at {{ support_email }}</p>
+
+<p>Best regards,<br>The NCLEX Virtual School Team</p>
+{% endblock %}
