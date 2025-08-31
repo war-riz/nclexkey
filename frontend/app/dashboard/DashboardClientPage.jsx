@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { 
   PlayCircle, 
   BookOpen, 
@@ -36,15 +38,32 @@ import {
   MoreHorizontal,
   Plus,
   Filter,
-  Search
+  Search,
+  Globe
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
-import { apiRequest, logout } from "@/lib/api"
+import { 
+  apiRequest, 
+  logout, 
+  getMyCourses, 
+  getCourseProgress, 
+  getMyOverallProgress,
+  getCourseRecommendations,
+  getUserDashboard,
+  getCourseReviews,
+  getCourseExams,
+  getCourseContentStructure,
+  paymentAPI,
+  chatAPI
+} from "@/lib/api"
+import { useRouter } from "next/navigation"
+import Avatar from "@/components/ui/avatar"
 
 export default function DashboardClientPage() {
   const { user, loading: loadingAuth } = useAuth()
+  const router = useRouter()
   const [dashboardData, setDashboardData] = useState(null)
   const [loadingData, setLoadingData] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
@@ -55,54 +74,84 @@ export default function DashboardClientPage() {
     const fetchDashboardData = async () => {
       if (loadingAuth) return
 
+      // Redirect based on user role
       if (user) {
+        if (user.role === "super_admin") {
+          router.push("/superadmin")
+          return
+        } else if (user.role === "instructor" || user.role === "admin") {
+          router.push("/admin")
+          return
+        }
+      }
+
+      if (user && (user.role === "student" || !user.role)) {
         setLoadingData(true)
         try {
-          // Fetch comprehensive dashboard data
-          const dashboardResponse = await apiRequest("/api/courses/", { method: "GET" })
-          if (!dashboardResponse.success) {
-            throw new Error(dashboardResponse.error.message || "Failed to fetch dashboard data.")
-          }
-          setDashboardData(dashboardResponse.data)
+          // Fetch comprehensive dashboard data using the proper API endpoints
+          const [
+            dashboardResponse,
+            coursesResponse,
+            progressResponse,
+            recommendationsResponse,
+            paymentHistoryResponse,
+            unreadMessagesResponse
+          ] = await Promise.all([
+            getUserDashboard(),
+            getMyCourses(),
+            getMyOverallProgress(),
+            getCourseRecommendations(),
+            paymentAPI.getPaymentHistory(),
+            chatAPI.getUnreadCount()
+          ])
 
-          // Fallback: If dashboard endpoint fails, fetch basic data
-          if (!dashboardResponse.data) {
-            const [coursesResponse, progressResponse] = await Promise.all([
-              apiRequest("/api/courses/", { method: "GET" }),
-              apiRequest("/api/users/me/progress/", { method: "GET" })
-            ])
-            
-            const coursesData = coursesResponse.success ? coursesResponse.data : []
-            const progressData = progressResponse.success ? progressResponse.data : []
-            
-            setDashboardData({
-              user_info: {
-                name: user.full_name || user.email,
-                email: user.email,
-                joined_date: user.date_joined,
-                avatar: user.avatar || null
-              },
-              statistics: {
-                total_courses: coursesData.length,
-                completed_courses: progressData.filter(p => p.progress_percentage === 100).length,
-                in_progress_courses: progressData.filter(p => p.progress_percentage > 0 && p.progress_percentage < 100).length,
-                completion_rate: coursesData.length > 0 ? Math.round((progressData.filter(p => p.progress_percentage === 100).length / coursesData.length) * 100) : 0,
-                total_spent: 0,
-                certificates_earned: 0,
-                study_hours: 0,
-                average_score: 0
-              },
-              recent_activity: {
-                course_progress: progressData.slice(0, 5),
-                enrollments: [],
-                exam_attempts: []
-              },
-              certificates: [],
-              recommended_courses: coursesData.slice(0, 3),
-              upcoming_deadlines: [],
-              notifications: []
-            })
+          // Build comprehensive dashboard data
+          const dashboardData = {
+            user_info: {
+              name: user.full_name || user.email,
+              email: user.email,
+              joined_date: user.date_joined,
+              role: user.role || "student"
+            },
+            statistics: {
+              total_courses: coursesResponse.success ? coursesResponse.data?.length || 0 : 0,
+              completed_courses: progressResponse.success ? 
+                progressResponse.data?.courses?.filter(c => c.progress_percentage === 100).length || 0 : 0,
+              in_progress_courses: progressResponse.success ? 
+                progressResponse.data?.courses?.filter(c => c.progress_percentage > 0 && c.progress_percentage < 100).length || 0 : 0,
+              completion_rate: progressResponse.success ? progressResponse.data?.overall_completion_rate || 0 : 0,
+              total_spent: paymentHistoryResponse.success ? 
+                paymentHistoryResponse.data?.total_spent || 0 : 0,
+              certificates_earned: progressResponse.success ? 
+                progressResponse.data?.certificates_earned || 0 : 0,
+              study_hours: progressResponse.success ? 
+                progressResponse.data?.total_study_hours || 0 : 0,
+              average_score: progressResponse.success ? 
+                progressResponse.data?.average_score || 0 : 0
+            },
+            recent_activity: {
+              course_progress: progressResponse.success ? 
+                progressResponse.data?.recent_activity?.course_progress || [] : [],
+              enrollments: progressResponse.success ? 
+                progressResponse.data?.recent_activity?.enrollments || [] : [],
+              exam_attempts: progressResponse.success ? 
+                progressResponse.data?.recent_activity?.exam_attempts || [] : []
+            },
+            certificates: progressResponse.success ? 
+              progressResponse.data?.certificates || [] : [],
+            recommended_courses: recommendationsResponse.success ? 
+              recommendationsResponse.data?.recommended_courses || [] : [],
+            upcoming_deadlines: progressResponse.success ? 
+              progressResponse.data?.upcoming_deadlines || [] : [],
+            notifications: {
+              unread_messages: unreadMessagesResponse.success ? 
+                unreadMessagesResponse.data?.unread_count || 0 : 0,
+              system_notifications: []
+            }
           }
+
+          setDashboardData(dashboardData)
+
         } catch (error) {
           console.error("Failed to fetch dashboard data:", error)
           toast({
@@ -119,36 +168,76 @@ export default function DashboardClientPage() {
           description: "Please log in to access your dashboard.",
           variant: "destructive",
         })
+        router.push("/login")
       }
     }
 
     fetchDashboardData()
-  }, [user, loadingAuth])
+  }, [user, loadingAuth, router])
 
   const handleSignOut = () => {
     logout()
+    router.push("/login")
   }
 
   const handleCourseAction = async (courseId, action) => {
     try {
-      const response = await apiRequest(`/api/courses/${courseId}/${action}/`, {
-        method: "POST"
-      })
+      let response
       
-      if (response.success) {
+      switch (action) {
+        case "continue":
+          router.push(`/courses/${courseId}`)
+          return
+        case "view":
+          router.push(`/courses/${courseId}`)
+          return
+        case "download":
+          // Handle certificate download
+          toast({
+            title: "Download Started",
+            description: "Certificate download initiated.",
+          })
+          return
+        default:
+          response = await apiRequest(`/api/courses/${courseId}/${action}/`, {
+            method: "POST"
+          })
+      }
+      
+      if (response && response.success) {
         toast({
           title: "Success",
           description: `Course ${action} successful!`,
         })
         // Refresh dashboard data
         window.location.reload()
-      } else {
+      } else if (response) {
         throw new Error(response.error.message)
       }
     } catch (error) {
       toast({
         title: "Error",
         description: `Failed to ${action} course: ${error.message}`,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleExamStart = async (examId) => {
+    try {
+      const response = await apiRequest(`/api/exams/${examId}/start/`, {
+        method: "POST"
+      })
+      
+      if (response.success) {
+        router.push(`/exam/${examId}`)
+      } else {
+        throw new Error(response.error.message)
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to start exam: ${error.message}`,
         variant: "destructive",
       })
     }
@@ -184,7 +273,7 @@ export default function DashboardClientPage() {
   const certificates = dashboardData?.certificates || []
   const recentActivity = dashboardData?.recent_activity || {}
   const recommendedCourses = dashboardData?.recommended_courses || []
-  const notifications = dashboardData?.notifications || []
+  const notifications = dashboardData?.notifications || {}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -192,31 +281,28 @@ export default function DashboardClientPage() {
       <header className="bg-white shadow-sm py-6 px-6 border-b border-gray-200">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* <Avatar className="h-12 w-12">
-              <AvatarImage src={userInfo.avatar} alt={userInfo.name} />
-              <AvatarFallback className="bg-indigo-100 text-indigo-600 font-semibold">
-                {userInfo.name?.charAt(0) || user.email?.charAt(0) || 'U'}
-              </AvatarFallback>
-            </Avatar> */}
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Welcome back, {userInfo.name || user.full_name || user.email}!
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Member since {userInfo.joined_date ? new Date(userInfo.joined_date).toLocaleDateString() : 'N/A'}
-              </p>
+            <div className="flex items-center gap-4">
+              <Avatar user={user} size="md" />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Welcome back, {userInfo.name || user.full_name || user.email}!
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  Member since {userInfo.joined_date ? new Date(userInfo.joined_date).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <Button asChild variant="ghost" className="text-gray-600 hover:text-indigo-600 relative">
-              <Link href="/dashboard/notifications">
+              <Link href="/dashboard/messages">
                 <Bell className="h-5 w-5 mr-2" />
-                {notifications.length > 0 && (
+                {notifications.unread_messages > 0 && (
                   <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs">
-                    {notifications.length}
+                    {notifications.unread_messages}
                   </Badge>
                 )}
-                Notifications
+                Messages
               </Link>
             </Button>
             <Button asChild variant="ghost" className="text-gray-600 hover:text-indigo-600">
@@ -355,7 +441,11 @@ export default function DashboardClientPage() {
                                 Progress: {activity.progress_percentage}% • {activity.last_accessed}
                               </p>
                             </div>
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleCourseAction(activity.course_id, "continue")}
+                            >
                               Continue
                             </Button>
                           </div>
@@ -380,15 +470,19 @@ export default function DashboardClientPage() {
                         <div key={index} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
                           <div className="flex items-start justify-between mb-2">
                             <h3 className="font-semibold text-gray-900">{course.title}</h3>
-                            <Badge variant="secondary">{course.difficulty}</Badge>
+                            <Badge variant="secondary">{course.difficulty_level}</Badge>
                           </div>
                           <p className="text-sm text-gray-600 mb-3">{course.description}</p>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm text-gray-500">
                               <Clock className="h-4 w-4" />
-                              {course.duration}
+                              {course.duration_minutes} min
                             </div>
-                            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">
+                            <Button 
+                              size="sm" 
+                              className="bg-indigo-600 hover:bg-indigo-700"
+                              onClick={() => router.push(`/courses/${course.id}`)}
+                            >
                               Enroll
                             </Button>
                           </div>
@@ -401,34 +495,41 @@ export default function DashboardClientPage() {
 
               {/* Sidebar */}
               <div className="space-y-6">
-                {/* Quick Actions */}
-                <Card className="bg-white shadow-md">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button asChild variant="outline" className="w-full justify-start">
-                      <Link href="/courses">
-                        <BookOpen className="h-4 w-4 mr-2" /> Browse Courses
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full justify-start">
-                      <Link href="/dashboard/progress">
-                        <Target className="h-4 w-4 mr-2" /> View Progress
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full justify-start">
-                      <Link href="/dashboard/messages">
-                        <MessageSquare className="h-4 w-4 mr-2" /> Messages
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" className="w-full justify-start">
-                      <Link href="/dashboard/exam">
-                        <ClipboardCheck className="h-4 w-4 mr-2" /> Take Exam
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
+                              {/* Quick Actions */}
+              <Card className="bg-white shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button asChild variant="outline" className="w-full justify-start">
+                    <Link href="/courses">
+                      <BookOpen className="h-4 w-4 mr-2" /> Browse Courses
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full justify-start">
+                    <Link href="/dashboard/progress">
+                      <Target className="h-4 w-4 mr-2" /> View Progress
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full justify-start">
+                    <Link href="/dashboard/messages">
+                      <MessageSquare className="h-4 w-4 mr-2" /> Messages
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full justify-start">
+                    <Link href="/dashboard/exam">
+                      <ClipboardCheck className="h-4 w-4 mr-2" /> Take Exam
+                    </Link>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start bg-blue-50 border-blue-200 hover:bg-blue-100"
+                    onClick={() => window.open('https://candidate.speedexam.net/openquiz.aspx?quiz=68A6BFA31A094327AA1ABD93DD8250DF', '_blank')}
+                  >
+                    <Globe className="h-4 w-4 mr-2 text-blue-600" /> Visit External Resource
+                  </Button>
+                </CardContent>
+              </Card>
 
                 {/* Certificates */}
                 {certificates.length > 0 && (
@@ -447,7 +548,11 @@ export default function DashboardClientPage() {
                               <p className="font-medium text-sm">{cert.course_name}</p>
                               <p className="text-xs text-gray-600">{cert.issued_date}</p>
                             </div>
-                            <Button size="sm" variant="ghost">
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={() => handleCourseAction(cert.id, "download")}
+                            >
                               <Download className="h-4 w-4" />
                             </Button>
                           </div>
@@ -530,7 +635,11 @@ export default function DashboardClientPage() {
                         <span>Last accessed: {course.last_accessed}</span>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700">
+                        <Button 
+                          size="sm" 
+                          className="flex-1 bg-indigo-600 hover:bg-indigo-700"
+                          onClick={() => handleCourseAction(course.course_id, "continue")}
+                        >
                           <PlayCircle className="h-4 w-4 mr-1" /> Continue
                         </Button>
                         <Button size="sm" variant="outline">
@@ -579,7 +688,11 @@ export default function DashboardClientPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleCourseAction(course.course_id, "view")}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -607,7 +720,11 @@ export default function DashboardClientPage() {
                           <h3 className="font-semibold text-gray-900 mb-2">{cert.course_name}</h3>
                           <p className="text-sm text-gray-600 mb-4">Issued: {cert.issued_date}</p>
                           <div className="flex gap-2 justify-center">
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleCourseAction(cert.id, "download")}
+                            >
                               <Download className="h-4 w-4 mr-1" /> Download
                             </Button>
                             <Button size="sm" variant="outline">
@@ -644,7 +761,9 @@ export default function DashboardClientPage() {
                       <ClipboardCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <h3 className="font-semibold text-gray-900 mb-2">NCLEX-RN Practice</h3>
                       <p className="text-sm text-gray-600 mb-4">75 questions • 2 hours</p>
-                      <Button className="w-full">Start Exam</Button>
+                      <Button className="w-full" onClick={() => handleExamStart("nclex-rn")}>
+                        Start Exam
+                      </Button>
                     </CardContent>
                   </Card>
                   
@@ -653,7 +772,9 @@ export default function DashboardClientPage() {
                       <ClipboardCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <h3 className="font-semibold text-gray-900 mb-2">NCLEX-PN Practice</h3>
                       <p className="text-sm text-gray-600 mb-4">85 questions • 2.5 hours</p>
-                      <Button className="w-full">Start Exam</Button>
+                      <Button className="w-full" onClick={() => handleExamStart("nclex-pn")}>
+                        Start Exam
+                      </Button>
                     </CardContent>
                   </Card>
                   
@@ -662,7 +783,9 @@ export default function DashboardClientPage() {
                       <ClipboardCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <h3 className="font-semibold text-gray-900 mb-2">Quick Quiz</h3>
                       <p className="text-sm text-gray-600 mb-4">20 questions • 30 minutes</p>
-                      <Button className="w-full">Start Quiz</Button>
+                      <Button className="w-full" onClick={() => handleExamStart("quick-quiz")}>
+                        Start Quiz
+                      </Button>
                     </CardContent>
                   </Card>
                 </div>

@@ -21,7 +21,7 @@ export default function RegisterClientPage() {
     fullName: "",
     email: "",
     phoneNumber: "",
-    role: "",
+    role: "student", // Default to student
     password: "",
     confirmPassword: "",
   })
@@ -79,6 +79,23 @@ export default function RegisterClientPage() {
       setShowPayment(false)
       setPaymentSuccess(false)
       setPaymentReference("")
+    }
+    
+    // Validate role selection
+    if (field === 'role') {
+      if (value === 'instructor' || value === 'admin') {
+        toast({
+          title: "Instructor Registration",
+          description: "Instructor accounts require approval. You'll be notified once approved.",
+          variant: "default",
+        })
+      } else if (value === 'super_admin') {
+        toast({
+          title: "Super Admin Registration",
+          description: "Super admin accounts require special approval.",
+          variant: "default",
+        })
+      }
     }
   }
 

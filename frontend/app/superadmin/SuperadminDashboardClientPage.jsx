@@ -10,6 +10,7 @@ import { CheckCircle, XCircle, BookOpen, DollarSign, Settings, LogOut, Loader2, 
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import { superadminAPI, logout } from "@/lib/api"
+import Avatar from "@/components/ui/avatar"
 
 export default function SuperadminDashboardClientPage() {
   const { user, loading: loadingAuth } = useAuth()
@@ -29,16 +30,27 @@ export default function SuperadminDashboardClientPage() {
         setIsSuperadmin(true)
         setLoadingData(true)
         try {
-          // Fetch platform overview
-          const overviewResult = await superadminAPI.getPlatformOverview()
+          // Fetch comprehensive platform data
+          const [
+            overviewResult,
+            coursesResult,
+            revenueResult,
+            instructorStatsResult,
+            moderationStatsResult
+          ] = await Promise.all([
+            superadminAPI.getPlatformOverview(),
+            superadminAPI.getPendingCourses(),
+            superadminAPI.getRevenueAnalytics(),
+            superadminAPI.getAllInstructors(),
+            superadminAPI.getCourseModerationStats()
+          ])
+          
           if (overviewResult.success) {
             setPlatformStats(overviewResult.data || {})
           } else {
             console.warn("Failed to fetch platform overview:", overviewResult.error)
           }
 
-          // Fetch pending courses
-          const coursesResult = await superadminAPI.getPendingCourses()
           if (coursesResult.success) {
             setPendingCourses(coursesResult.data?.pending_courses || [])
           } else {

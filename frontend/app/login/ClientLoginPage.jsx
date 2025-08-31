@@ -41,8 +41,8 @@ export default function ClientLoginPage() {
       // Redirect based on user role from the login result
       if (result.user?.role === "super_admin") {
         router.push("/superadmin") // Superadmin dashboard
-      } else if (result.user?.role === "instructor") {
-        router.push("/admin") // Instructor dashboard
+      } else if (result.user?.role === "instructor" || result.user?.role === "admin") {
+        router.push("/admin") // Instructor/Admin dashboard
       } else {
         // Default for student or other roles
         router.push("/dashboard")

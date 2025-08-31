@@ -12,7 +12,12 @@ import { Progress } from "@/components/ui/progress"
 import { Upload, Users, BookOpen, Settings, LogOut, Edit, Trash2, X, Loader2, Plus, Eye, BarChart3, DollarSign, TrendingUp, Clock, CheckCircle, AlertCircle, FileText, Video, MessageSquare, Award } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
-import { apiRequest, logout } from "@/lib/api"
+import { 
+  apiRequest, 
+  logout, 
+  instructorAPI 
+} from "@/lib/api"
+import Avatar from "@/components/ui/avatar"
 
 export default function AdminDashboardClientPage() {
   const { user, loading: loadingAuth } = useAuth()
@@ -46,11 +51,19 @@ export default function AdminDashboardClientPage() {
         setIsInstructor(true)
         setLoadingData(true)
         try {
-          // Fetch instructor dashboard data
-          const [coursesResponse, studentsResponse, analyticsResponse] = await Promise.all([
-            apiRequest("/api/admin/courses/", { method: "GET" }),
-            apiRequest("/api/admin/users/", { method: "GET" }),
-            apiRequest("/api/admin/courses/statistics/", { method: "GET" })
+          // Fetch instructor dashboard data using comprehensive API endpoints
+          const [
+            dashboardResponse,
+            coursesResponse, 
+            analyticsResponse,
+            paymentAnalyticsResponse,
+            examStatsResponse
+          ] = await Promise.all([
+            instructorAPI.getInstructorDashboard(),
+            instructorAPI.getCourses(),
+            instructorAPI.getCourseStatistics(),
+            instructorAPI.getPaymentAnalytics(),
+            instructorAPI.getExamStatistics()
           ])
 
           if (coursesResponse.success) {
