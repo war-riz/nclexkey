@@ -59,7 +59,7 @@ import {
   chatAPI
 } from "@/lib/api"
 import { useRouter } from "next/navigation"
-import Avatar from "@/components/ui/avatar"
+
 
 export default function DashboardClientPage() {
   const { user, loading: loadingAuth } = useAuth()
@@ -282,7 +282,6 @@ export default function DashboardClientPage() {
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-4">
-              <Avatar user={user} size="md" />
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
                   Welcome back, {userInfo.name || user.full_name || user.email}!

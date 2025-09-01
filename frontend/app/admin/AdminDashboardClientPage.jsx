@@ -17,7 +17,7 @@ import {
   logout, 
   instructorAPI 
 } from "@/lib/api"
-import Avatar from "@/components/ui/avatar"
+
 
 export default function AdminDashboardClientPage() {
   const { user, loading: loadingAuth } = useAuth()

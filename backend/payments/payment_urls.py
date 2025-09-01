@@ -3,6 +3,18 @@ from django.urls import path
 from . import payment_views, bank_transfer
 
 urlpatterns = [
+    # Payment initialization (frontend calls this)
+    path('initialize/', payment_views.initialize_payment, name='initialize_payment'),
+    
+    # Test student registration endpoint
+    path('test-student-registration/', payment_views.test_student_registration, name='test_student_registration'),
+    
+    # Payment verification
+    path('verify/<str:reference>/', payment_views.verify_payment, name='verify_payment'),
+    
+    # Payment gateways
+    path('gateways/', payment_views.get_payment_gateways, name='get_payment_gateways'),
+    
     # Student payment operations
     path('transactions/', payment_views.payment_history, name='payment_history'),
     path('transactions/<uuid:payment_id>/', payment_views.payment_detail, name='payment_detail'),

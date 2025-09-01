@@ -1,5 +1,4 @@
-import Image from "next/image"
-import { Star } from "lucide-react"
+import { Star, User } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 
 export function TestimonialsSection() {
@@ -11,8 +10,6 @@ export function TestimonialsSection() {
       quote:
         "NCLEX Prep was instrumental in my success! The pre-recorded videos were clear and concise, and the practice questions truly prepared me for the exam. Highly recommend!",
       rating: 5,
-      avatar:
-        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
     {
       id: 2,
@@ -21,8 +18,6 @@ export function TestimonialsSection() {
       quote:
         "The tutors are incredibly knowledgeable and supportive. I loved the flexibility of learning at my own pace. Passed my NCLEX on the first attempt thanks to this platform!",
       rating: 5,
-      avatar:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
     {
       id: 3,
@@ -31,8 +26,6 @@ export function TestimonialsSection() {
       quote:
         "I struggled with pharmacology, but the masterclass here made it so much easier to understand. The detailed explanations and examples were a game-changer.",
       rating: 4,
-      avatar:
-        "https://images.unsplash.com/photo-1520813792240-56ff4218638b?q=80&w=1974&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
   ]
 
@@ -46,14 +39,8 @@ export function TestimonialsSection() {
               key={testimonial.id}
               className="p-6 flex flex-col items-center text-center rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out transform hover:-translate-y-2 animate-fade-in-up"
             >
-              <div className="relative h-20 w-20 rounded-full overflow-hidden mb-4 border-2 border-[#4F46E5]/20">
-                <Image
-                  src={testimonial.avatar || "/placeholder.svg"}
-                  alt={testimonial.name}
-                  fill
-                  style={{ objectFit: "cover" }}
-                  className="rounded-full"
-                />
+              <div className="h-20 w-20 rounded-full bg-gray-200 flex items-center justify-center mb-4 border-2 border-[#4F46E5]/20">
+                <User className="h-10 w-10 text-gray-500" />
               </div>
               <CardContent className="flex-grow p-0">
                 <p className="text-base italic text-gray-700 mb-4">"{testimonial.quote}"</p>

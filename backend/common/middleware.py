@@ -213,10 +213,8 @@ class RateLimitMiddleware(MiddlewareMixin):
             ip_count = cache.get(ip_cache_key, 0)
             
             if ip_count >= config['limit']:
-                # Calculate remaining time
-                ttl = cache.ttl(ip_cache_key)
-                if ttl is None:
-                    ttl = config['window']
+                # For local memory cache, we can't get TTL, so use default window
+                ttl = config['window']
                 
                 return JsonResponse({
                     'detail': config['message'],
@@ -232,9 +230,8 @@ class RateLimitMiddleware(MiddlewareMixin):
                     email_count = cache.get(email_cache_key, 0)
                     
                     if email_count >= config['limit']:
-                        ttl = cache.ttl(email_cache_key)
-                        if ttl is None:
-                            ttl = config['window']
+                        # For local memory cache, we can't get TTL, so use default window
+                        ttl = config['window']
                         
                         return JsonResponse({
                             'detail': config['message'],

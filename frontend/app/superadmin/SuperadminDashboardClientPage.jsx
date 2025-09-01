@@ -10,7 +10,7 @@ import { CheckCircle, XCircle, BookOpen, DollarSign, Settings, LogOut, Loader2, 
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import { superadminAPI, logout } from "@/lib/api"
-import Avatar from "@/components/ui/avatar"
+
 
 export default function SuperadminDashboardClientPage() {
   const { user, loading: loadingAuth } = useAuth()

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -206,14 +206,11 @@ export default function ConversationList({ onSelectConversation, selectedConvers
                     onClick={() => handleConversationClick(conversation)}
                   >
                     <div className="flex items-start gap-3">
-                      {/* Avatar */}
+                      {/* User Icon */}
                       <div className="relative">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={conversation.other_participant?.profile_picture} />
-                          <AvatarFallback>
-                            {getInitials(conversation.other_participant?.full_name || 'User')}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center">
+                          <User className="h-6 w-6 text-gray-500" />
+                        </div>
                         {unreadCount > 0 && (
                           <Badge 
                             variant="destructive" 

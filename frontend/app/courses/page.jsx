@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+
 import { 
   Search, 
   Filter, 
@@ -15,7 +15,8 @@ import {
   Clock, 
   Users, 
   BookOpen,
-  Loader2
+  Loader2,
+  User
 } from 'lucide-react'
 import CourseEnrollmentButton from '@/components/course-enrollment-button'
 import { listAllCourses, getCourseCategoriesPublic } from '@/lib/api'
@@ -229,12 +230,9 @@ export default function CoursesPage() {
               <CardContent className="flex-1 flex flex-col">
                 {/* Instructor */}
                 <div className="flex items-center gap-2 mb-3">
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src={course.instructor?.profile_picture} />
-                    <AvatarFallback className="text-xs">
-                      {getInitials(course.instructor?.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center">
+                    <User className="h-3 w-3 text-gray-500" />
+                  </div>
                   <span className="text-sm text-gray-600">
                     {course.instructor?.full_name || 'Unknown Instructor'}
                   </span>

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
@@ -18,7 +18,8 @@ import {
   Award,
   ArrowLeft,
   CheckCircle,
-  XCircle
+  XCircle,
+  User
 } from 'lucide-react'
 import CourseEnrollmentButton from '@/components/course-enrollment-button'
 import { getCourseDetailsPublic } from '@/lib/api'
@@ -168,12 +169,9 @@ export default function CourseDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={course.instructor?.profile_picture} />
-                  <AvatarFallback>
-                    {getInitials(course.instructor?.full_name)}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center">
+                  <User className="h-8 w-8 text-gray-500" />
+                </div>
                 <div>
                   <h3 className="font-semibold text-lg">
                     {course.instructor?.full_name || 'Unknown Instructor'}

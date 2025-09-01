@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -176,12 +176,9 @@ export default function ChatInterface({ conversationId, onClose }) {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={conversation.other_participant?.profile_picture} />
-              <AvatarFallback>
-                {getInitials(conversation.other_participant?.full_name || 'User')}
-              </AvatarFallback>
-            </Avatar>
+            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+              <User className="h-5 w-5 text-gray-500" />
+            </div>
             <div>
               <CardTitle className="text-lg">
                 {conversation.other_participant?.full_name || 'Unknown User'}
@@ -226,12 +223,9 @@ export default function ChatInterface({ conversationId, onClose }) {
                 className={`flex ${isMyMessage(message) ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={`flex gap-2 max-w-[70%] ${isMyMessage(message) ? 'flex-row-reverse' : 'flex-row'}`}>
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={message.sender?.profile_picture} />
-                    <AvatarFallback>
-                      {getInitials(message.sender?.full_name || 'User')}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                    <User className="h-4 w-4 text-gray-500" />
+                  </div>
                   <div className={`flex flex-col ${isMyMessage(message) ? 'items-end' : 'items-start'}`}>
                     <div
                       className={`rounded-lg px-3 py-2 ${
