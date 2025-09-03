@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardTitle, CardDescription, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -21,6 +22,7 @@ import {
 
 export default function AdminDashboardClientPage() {
   const { user, loading: loadingAuth } = useAuth()
+  const router = useRouter()
   const [isInstructor, setIsInstructor] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
 
@@ -251,8 +253,21 @@ export default function AdminDashboardClientPage() {
     setSelectedFile(null)
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    try {
+      console.log("Logout button clicked")
+      await logout()
+      console.log("Logout successful, redirecting...")
+      // Use router for navigation
+      router.push("/")
+    } catch (error) {
+      console.error("Logout error:", error)
+      // Even if logout fails, clear tokens and redirect
+      localStorage.removeItem("access_token")
+      localStorage.removeItem("refresh_token")
+      localStorage.removeItem("user_data")
+      router.push("/")
+    }
   }
 
   if (loadingAuth || loadingData) {
