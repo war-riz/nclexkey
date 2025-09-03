@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Upload, Users, BookOpen, Settings, LogOut, Edit, Trash2, X, Loader2, Plus, Eye, BarChart3, DollarSign, TrendingUp, Clock, CheckCircle, AlertCircle, FileText, Video, MessageSquare, Award } from "lucide-react"
+import { Upload, Users, BookOpen, Settings, LogOut, Edit, Trash2, X, Loader2, Plus, Eye, BarChart3, DollarSign, TrendingUp, Clock, CheckCircle, AlertCircle, FileText, Video, MessageSquare, Award, RefreshCw, Lock } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import { 
@@ -78,9 +78,11 @@ export default function AdminDashboardClientPage() {
           }
 
           if (coursesResponse.success) {
+            console.log("Courses fetched successfully:", coursesResponse.data)
             setCourses(coursesResponse.data || [])
           } else {
             console.warn("Failed to fetch courses:", coursesResponse.error)
+            console.log("Full courses response:", coursesResponse)
           }
 
           if (studentsResponse.success) {
@@ -125,12 +127,34 @@ export default function AdminDashboardClientPage() {
     fetchInstructorData()
   }, [user, loadingAuth])
 
+  // Refresh courses when component mounts or user changes
+  useEffect(() => {
+    if (isInstructor && !loadingData) {
+      refreshCourses()
+    }
+  }, [isInstructor, loadingData])
+
   const resetForm = () => {
     setCourseTitle("")
     setCourseDescription("")
     setVideoUrl("")
     setEditingCourseId(null)
     setSelectedFile(null)
+  }
+
+  const refreshCourses = async () => {
+    try {
+      console.log("Refreshing courses...")
+      const response = await instructorAPI.getCourses()
+      if (response.success) {
+        console.log("Courses refreshed:", response.data)
+        setCourses(response.data || [])
+      } else {
+        console.warn("Failed to refresh courses:", response.error)
+      }
+    } catch (error) {
+      console.error("Error refreshing courses:", error)
+    }
   }
 
   const handleCourseFormSubmit = async (e) => {
@@ -210,7 +234,8 @@ export default function AdminDashboardClientPage() {
           throw new Error(response.error.message || "Failed to add course.")
         }
 
-        setCourses((prevCourses) => [response.data, ...prevCourses])
+        // Refresh courses to get updated data
+        await refreshCourses()
         toast({ title: "Course Uploaded", description: "Course added successfully!" })
       } catch (error) {
         console.error("Add course API call failed:", error)
@@ -231,7 +256,8 @@ export default function AdminDashboardClientPage() {
         })
 
         if (response.success) {
-          setCourses((prevCourses) => prevCourses.filter((course) => course.id !== courseId))
+          // Refresh courses to get updated data
+          await refreshCourses()
           toast({ title: "Course Deleted", description: "Course deleted successfully!" })
         } else {
           throw new Error(response.error.message || "Failed to delete course.")
@@ -307,9 +333,13 @@ export default function AdminDashboardClientPage() {
             <p className="text-gray-600 mt-1">Manage your courses and track student progress</p>
           </div>
         <div className="flex items-center gap-4">
-            <Button variant="ghost" className="text-gray-600 hover:text-indigo-600">
-            <Settings className="h-5 w-5 mr-2" /> Settings
-          </Button>
+            <Button 
+              variant="ghost" 
+              className="text-gray-600 hover:text-indigo-600"
+              onClick={() => setActiveTab("settings")}
+            >
+              <Settings className="h-5 w-5 mr-2" /> Settings
+            </Button>
             <Button onClick={handleLogout} className="bg-indigo-600 text-white hover:bg-indigo-700">
             <LogOut className="h-5 w-5 mr-2" /> Logout
           </Button>
@@ -347,6 +377,13 @@ export default function AdminDashboardClientPage() {
             onClick={() => setActiveTab("analytics")}
           >
             <TrendingUp className="h-5 w-5 mr-2" /> Analytics
+          </Button>
+          <Button
+            variant="ghost"
+            className={`rounded-none border-b-2 ${activeTab === "settings" ? "border-indigo-600 text-indigo-600" : "border-transparent text-gray-600 hover:text-gray-800"}`}
+            onClick={() => setActiveTab("settings")}
+          >
+            <Settings className="h-5 w-5 mr-2" /> Settings
           </Button>
         </div>
 
@@ -651,9 +688,19 @@ export default function AdminDashboardClientPage() {
             <div className="lg:col-span-2 space-y-8">
               <Card className="bg-white shadow-md">
                 <CardHeader>
-                  <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                    <BookOpen className="h-6 w-6 text-indigo-600" /> Manage My Courses
-                </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                      <BookOpen className="h-6 w-6 text-indigo-600" /> Manage My Courses
+                    </CardTitle>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={refreshCourses}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" /> Refresh
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -796,6 +843,94 @@ export default function AdminDashboardClientPage() {
                 </CardContent>
               </Card>
             </div>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === "settings" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-800">Account Settings</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-white shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Profile Information</CardTitle>
+                  <CardDescription>Update your personal information</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="fullName">Full Name</Label>
+                    <Input 
+                      id="fullName" 
+                      value={user?.full_name || ''} 
+                      disabled 
+                      className="bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input 
+                      id="email" 
+                      value={user?.email || ''} 
+                      disabled 
+                      className="bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="role">Role</Label>
+                    <Input 
+                      id="role" 
+                      value={user?.role || ''} 
+                      disabled 
+                      className="bg-gray-50"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Account Security</CardTitle>
+                  <CardDescription>Manage your account security</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button variant="outline" className="w-full">
+                    <Lock className="h-4 w-4 mr-2" /> Change Password
+                  </Button>
+                  <Button variant="outline" className="w-full">
+                    <Settings className="h-4 w-4 mr-2" /> Two-Factor Authentication
+                  </Button>
+                  <Button variant="outline" className="w-full">
+                    <Eye className="h-4 w-4 mr-2" /> Privacy Settings
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="bg-white shadow-md">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">Notification Preferences</CardTitle>
+                <CardDescription>Manage how you receive notifications</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Email Notifications</p>
+                    <p className="text-sm text-gray-600">Receive updates via email</p>
+                  </div>
+                  <Button variant="outline" size="sm">Configure</Button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Course Updates</p>
+                    <p className="text-sm text-gray-600">Get notified about course changes</p>
+                  </div>
+                  <Button variant="outline" size="sm">Configure</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Analytics Tab */}
