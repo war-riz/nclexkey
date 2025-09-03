@@ -14,7 +14,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # JWT Settings
-JWT_SECRET_KEY = 'your-secret-key-here'  # Move to settings.py in production
+from django.conf import settings
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRY_HOURS = 24
 
@@ -27,7 +27,7 @@ def generate_jwt_token(user):
         'exp': timezone.now() + timedelta(hours=JWT_EXPIRY_HOURS),
         'iat': timezone.now()
     }
-    token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return token
 
 @api_view(['POST'])
