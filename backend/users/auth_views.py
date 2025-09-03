@@ -21,11 +21,11 @@ JWT_EXPIRY_HOURS = 24
 def generate_jwt_token(user):
     """Generate JWT token for user"""
     payload = {
-        'user_id': user.id,
+        'user_id': str(user.id),  # Convert UUID to string
         'email': user.email,
         'role': user.role,
-        'exp': datetime.utcnow() + timedelta(hours=JWT_EXPIRY_HOURS),
-        'iat': datetime.utcnow()
+        'exp': timezone.now() + timedelta(hours=JWT_EXPIRY_HOURS),
+        'iat': timezone.now()
     }
     token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return token
