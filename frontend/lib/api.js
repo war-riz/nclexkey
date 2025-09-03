@@ -163,7 +163,7 @@ export async function apiRequest(url, options = {}) {
 
 // 1. User Registration
 export async function register({ email, fullName, phoneNumber, role, password, confirmPassword }) {
-  return apiRequest(`/auth/register`, {
+  return apiRequest(`/api/auth/register`, {
     method: "POST",
     body: JSON.stringify({
       email,
@@ -187,7 +187,7 @@ export async function login({ email, password, twoFactorToken = "", backupCode =
     payload.backup_code = backupCode
   }
   
-  return apiRequest(`/auth/login`, {
+  return apiRequest(`/api/auth/login`, {
     method: "POST",
     body: JSON.stringify(payload),
   })
