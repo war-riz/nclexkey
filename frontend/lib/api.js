@@ -78,19 +78,25 @@ async function handleResponse(response) {
   }
   
   // Store tokens if they exist in the response (for login and refresh)
+  console.log("Storing tokens from response:", { access_token: data.access_token, token: data.token, refresh_token: data.refresh_token })
+  
   if (data.access_token) {
     localStorage.setItem("access_token", data.access_token)
+    console.log("Stored access_token")
   }
   if (data.token) {
     localStorage.setItem("access_token", data.token)  // Store as access_token for consistency
+    console.log("Stored token as access_token")
   }
   if (data.refresh_token) {
     localStorage.setItem("refresh_token", data.refresh_token)
+    console.log("Stored refresh_token")
   }
   
   // Store user data if provided in login response
   if (data.user) {
     localStorage.setItem("user_data", JSON.stringify(data.user))
+    console.log("Stored user data")
   }
   
   return { success: true, data }
@@ -99,10 +105,14 @@ async function handleResponse(response) {
 // Generic API request function with token handling and automatic refresh
 export async function apiRequest(url, options = {}) {
   const token = localStorage.getItem("access_token")
+  console.log("API Request - Token from localStorage:", token ? "EXISTS" : "MISSING")
+  
   const headers = {
     ...options.headers,
     ...(token && { Authorization: `Bearer ${token}` }),
   }
+  
+  console.log("API Request - Final headers:", headers)
 
   // If body is JSON, set Content-Type
   if (options.body && !(options.body instanceof FormData) && !headers["Content-Type"]) {
