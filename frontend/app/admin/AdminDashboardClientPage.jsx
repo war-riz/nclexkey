@@ -68,6 +68,13 @@ export default function AdminDashboardClientPage() {
             instructorAPI.getStudents()
           ])
 
+          // Handle each response safely
+          if (dashboardResponse && dashboardResponse.success) {
+            console.log("Dashboard data loaded successfully")
+          } else {
+            console.warn("Dashboard response issue:", dashboardResponse?.error || "No response")
+          }
+
           if (coursesResponse.success) {
             setCourses(coursesResponse.data || [])
           } else {

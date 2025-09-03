@@ -15,10 +15,24 @@ const VIDEO_STREAMING_URL = process.env.NEXT_PUBLIC_VIDEO_STREAMING_URL || `${AP
 async function handleResponse(response) {
   const contentType = response.headers.get("content-type")
   let data = {}
-  if (contentType && contentType.includes("application/json")) {
-    data = await response.json()
-  } else {
-    data = await response.text()
+  
+  try {
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json()
+    } else {
+      data = await response.text()
+    }
+  } catch (error) {
+    console.error("Error parsing response:", error)
+    // Return a safe default response
+    return {
+      success: false,
+      error: {
+        message: "Invalid response format from server",
+        status: response.status,
+        details: "Server returned invalid JSON or text"
+      }
+    }
   }
 
   if (!response.ok) {
@@ -149,7 +163,7 @@ export async function apiRequest(url, options = {}) {
 
 // 1. User Registration
 export async function register({ email, fullName, phoneNumber, role, password, confirmPassword }) {
-  return apiRequest(`/api/auth/register`, {
+  return apiRequest(`/auth/register`, {
     method: "POST",
     body: JSON.stringify({
       email,
@@ -173,7 +187,7 @@ export async function login({ email, password, twoFactorToken = "", backupCode =
     payload.backup_code = backupCode
   }
   
-  return apiRequest(`/api/auth/login`, {
+  return apiRequest(`/auth/login`, {
     method: "POST",
     body: JSON.stringify(payload),
   })
