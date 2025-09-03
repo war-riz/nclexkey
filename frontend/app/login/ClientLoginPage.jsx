@@ -199,20 +199,6 @@ export default function ClientLoginPage() {
               </p>
             )}
             {rateLimitError && <RateLimitMessage error={rateLimitError} onRetry={handleRetry} />}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h4 className="text-sm font-semibold text-blue-900 mb-2">For Instructors:</h4>
-              <p className="text-xs text-blue-700 mb-2">
-                Use your assigned instructor credentials to access the admin dashboard.
-              </p>
-              <div className="mt-3 p-3 bg-white rounded border border-blue-200">
-                <p className="text-xs text-blue-800 font-medium mb-1">Default Credentials:</p>
-                <p className="text-xs text-blue-700">Email: instructor@nclexprep.com</p>
-                <p className="text-xs text-blue-700">Password: instructor123</p>
-              </div>
-              <p className="text-xs text-blue-600 mt-2">
-                Contact the system administrator for new credentials or password reset.
-              </p>
-            </div>
             
             <p className="mt-4 text-center text-sm text-muted-foreground">
               New student?{" "}
