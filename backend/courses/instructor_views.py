@@ -20,7 +20,7 @@ from .serializers import (
     CourseLessonSerializer, CourseLessonCreateSerializer,
     UserLessonProgressSerializer, UserLessonProgressUpdateSerializer
 )
-from common.permissions import IsAuthenticated, IsAdmin
+from common.permissions import IsAuthenticated, IsAdmin, IsInstructor
 from users.models import User
 from utils.auth import EmailService
 from django.utils.text import slugify
@@ -113,7 +113,7 @@ def upload_video(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAdmin])
+@permission_classes([IsInstructor])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
 def create_course(request):
     """
