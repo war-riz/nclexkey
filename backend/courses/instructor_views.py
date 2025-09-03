@@ -142,8 +142,8 @@ def create_course(request):
     
     try:
         with transaction.atomic():
-            # Set course as inactive by default (requires super admin approval)
-            course = serializer.save(is_active=False, moderation_status='pending')
+            # Set course as active immediately (no approval needed)
+            course = serializer.save(is_active=True, moderation_status='approved')
             
             # Handle video upload and thumbnail generation
             video_info = None
