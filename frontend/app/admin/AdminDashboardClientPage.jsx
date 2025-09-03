@@ -172,11 +172,32 @@ export default function AdminDashboardClientPage() {
         const formData = new FormData()
         formData.append("title", courseTitle)
         formData.append("description", courseDescription)
+        
+        // Set video source and file/URL
         if (selectedFile) {
+          formData.append("video_source", "upload")
           formData.append("video_file", selectedFile)
         } else if (videoUrl) {
+          formData.append("video_source", "url")
           formData.append("video_url", videoUrl)
         }
+        
+        // Set required default values
+        formData.append("course_type", "free")
+        formData.append("price", "0.00")
+        formData.append("currency", "NGN")
+        formData.append("duration_minutes", "60")
+        formData.append("difficulty_level", "beginner")
+        formData.append("is_active", "false")
+        formData.append("is_featured", "false")
+        formData.append("category", "all")  // Default category
+        
+        // Add missing fields that serializer expects
+        formData.append("has_discount", "false")
+        formData.append("discount_percentage", "0")
+        formData.append("estimated_duration_hours", "1.0")
+        formData.append("requirements", "[]")  // Empty array
+        formData.append("what_you_will_learn", "[]")  // Empty array
 
         const response = await apiRequest("/api/admin/courses/create/", {
           method: "POST",
