@@ -12,7 +12,7 @@ Class-based views
     2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
 Including another URLconf
     1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+    2. Add a URL to urlpatterns:  path('blog/', include('other_app.urls'))
 """
 from django.contrib import admin
 from django.urls import path, include
@@ -22,4 +22,6 @@ urlpatterns = [
     path('', include('users.urls')),
     path('', include('courses.urls')),
     path('', include('payments.urls')),
+    # Add webhook URLs directly to avoid double api prefix
+    path('api/payments/webhooks/', include('payments.webhook_urls')),
 ]

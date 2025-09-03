@@ -88,9 +88,9 @@ class Payment(models.Model):
     gateway = models.ForeignKey(PaymentGateway, on_delete=models.PROTECT)
     gateway_reference = models.CharField(max_length=255, blank=True, help_text="Gateway's transaction reference")
     
-    # User and course
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='payments')
+    # User and course (nullable for student registration)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments', null=True, blank=True)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='payments', null=True, blank=True)
     
     # Amount details
     amount = models.DecimalField(max_digits=12, decimal_places=2, help_text="Amount in the specified currency")
@@ -160,19 +160,34 @@ class Payment(models.Model):
             self.net_amount = self.amount - self.gateway_fee - self.platform_fee
         
         # Set customer details from user if not provided
-        if not self.customer_email:
+        if not self.customer_email and self.user:
             self.customer_email = self.user.email
-        if not self.customer_name:
+        if not self.customer_name and self.user:
             self.customer_name = self.user.full_name
-        if not self.customer_phone:
+        if not self.customer_phone and self.user:
             self.customer_phone = getattr(self.user, 'phone_number', '')
+        
+        # For student registration payments, get customer details from metadata
+        if not self.customer_email and self.metadata and 'user_data' in self.metadata:
+            user_data = self.metadata['user_data']
+            if not self.customer_email:
+                self.customer_email = user_data.get('email', '')
+            if not self.customer_name:
+                self.customer_name = user_data.get('full_name', '')
+            if not self.customer_phone:
+                self.customer_phone = user_data.get('phone_number', '')
         
         super().save(*args, **kwargs)
     
     def generate_reference(self):
         """Generate unique payment reference"""
         while True:
-            reference = f"NCLEX_{timezone.now().strftime('%Y%m%d')}_{self.user.id.hex[:8]}_{uuid.uuid4().hex[:8]}"
+            if self.user:
+                user_id = self.user.id.hex[:8]
+            else:
+                user_id = "REG"  # For student registration
+            
+            reference = f"NCLEX_{timezone.now().strftime('%Y%m%d')}_{user_id}_{uuid.uuid4().hex[:8]}"
             if not Payment.objects.filter(reference=reference).exists():
                 return reference
     

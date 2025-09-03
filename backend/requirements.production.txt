@@ -1,0 +1,56 @@
+# Production Requirements for NCLEX Website
+# Install with: pip install -r requirements.production.txt
+
+# Django Core
+Django==5.2.4
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+django-filter==23.5
+django-extensions==3.2.3
+
+# Database
+psycopg2-binary==2.9.9
+dj-database-url==2.1.0
+
+# Authentication & Security
+djangorestframework-simplejwt==5.3.0
+django-ratelimit==4.1.0
+
+# File Upload & Media
+Pillow==10.1.0
+python-magic==0.4.27
+
+# Payment Processing
+requests==2.31.0
+stripe==7.8.0
+
+# Email & Notifications
+django-anymail==10.2
+
+# Caching & Performance
+redis==5.0.1
+django-redis==5.4.0
+celery==5.3.4
+
+# Background Tasks
+celery[redis]==5.3.4
+
+# Environment & Configuration
+python-dotenv==1.0.0
+django-environ==0.11.2
+
+# Production Server
+gunicorn==21.2.0
+whitenoise==6.6.0
+
+# Monitoring & Logging
+sentry-sdk==1.38.0
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Development & Testing (Optional for production)
+# pytest==7.4.3
+# pytest-django==4.7.0
+# factory-boy==3.3.0

@@ -2,80 +2,136 @@
 import os
 from django.core.management.base import BaseCommand
 from payments.models import PaymentGateway
+from django.conf import settings
 
 class Command(BaseCommand):
-    help = 'Setup payment gateways with environment variables'
+    help = 'Set up payment gateways with proper configuration'
 
     def handle(self, *args, **options):
-        # Create or update Paystack gateway
-        paystack_gateway, created = PaymentGateway.objects.update_or_create(
-            name='paystack',
-            defaults={
-                'display_name': 'Paystack',
-                'public_key': os.environ.get('PAYSTACK_PUBLIC_KEY', ''),
-                'secret_key': os.environ.get('PAYSTACK_SECRET_KEY', ''),
-                'webhook_secret': os.environ.get('PAYSTACK_WEBHOOK_SECRET', ''),
-                'base_url': 'https://api.paystack.co',
-                'is_active': True,
-                'supported_currencies': ['NGN', 'USD', 'GHS', 'ZAR'],
-                'supports_webhooks': True,
-                'supports_refunds': True,
-                'supports_transfers': True,
-                'gateway_config': {
-                    'split_code': os.environ.get('PAYSTACK_SPLIT_CODE', ''),
-                    'channels': ['card', 'bank', 'ussd', 'qr', 'mobile_money']
-                }
-            }
-        )
+        self.stdout.write("🔧 Setting up Payment Gateways...")
         
-        action = "Created" if created else "Updated"
-        self.stdout.write(
-            self.style.SUCCESS(f'{action} Paystack gateway successfully')
-        )
+        # Setup Paystack
+        self.setup_paystack()
+        
+        # Setup Flutterwave
+        self.setup_flutterwave()
+        
+        self.stdout.write("✅ Payment Gateway Setup Complete!")
 
-        # Create or update Flutterwave gateway
-        flutterwave_gateway, created = PaymentGateway.objects.update_or_create(
-            name='flutterwave',
-            defaults={
-                'display_name': 'Flutterwave',
-                'public_key': os.environ.get('FLUTTERWAVE_PUBLIC_KEY', ''),
-                'secret_key': os.environ.get('FLUTTERWAVE_SECRET_KEY', ''),
-                'webhook_secret': os.environ.get('FLUTTERWAVE_WEBHOOK_SECRET', ''),
-                'base_url': 'https://api.flutterwave.com/v3',
-                'is_active': True,
-                'supported_currencies': ['NGN', 'USD', 'GHS', 'KES', 'UGX', 'TZS'],
-                'supports_webhooks': True,
-                'supports_refunds': True,
-                'supports_transfers': True,
-                'gateway_config': {
-                    'encryption_key': os.environ.get('FLUTTERWAVE_ENCRYPTION_KEY', ''),
-                    'payment_methods': ['card', 'account', 'ussd', 'qr', 'mobile_money']
+    def setup_paystack(self):
+        """Set up Paystack payment gateway"""
+        self.stdout.write("\n💳 Setting up Paystack...")
+        
+        try:
+            paystack, created = PaymentGateway.objects.get_or_create(
+                name='paystack',
+                defaults={
+                    'display_name': 'Paystack',
+                    'is_active': True,
+                    'is_default': True,
+                    'public_key': getattr(settings, 'PAYSTACK_PUBLIC_KEY', ''),
+                    'secret_key': getattr(settings, 'PAYSTACK_SECRET_KEY', ''),
+                    'webhook_secret': getattr(settings, 'PAYSTACK_WEBHOOK_SECRET', ''),
+                    'supported_currencies': ['NGN', 'USD', 'GHS', 'KES'],
+                    'transaction_fee_percentage': 0.0150,  # 1.5%
+                    'transaction_fee_cap': 2000.00,  # 2000 NGN cap
+                    'supports_transfers': True,
+                    'minimum_transfer_amount': 1000.00
                 }
-            }
-        )
-        
-        action = "Created" if created else "Updated"
-        self.stdout.write(
-            self.style.SUCCESS(f'{action} Flutterwave gateway successfully')
-        )
-
-        # Display status
-        self.stdout.write("\n" + "="*50)
-        self.stdout.write("PAYMENT GATEWAY SETUP COMPLETE")
-        self.stdout.write("="*50)
-        
-        if paystack_gateway.public_key:
-            self.stdout.write(f"✅ Paystack: Configured")
-        else:
-            self.stdout.write(f"❌ Paystack: Missing keys in environment")
+            )
             
-        if flutterwave_gateway.public_key:
-            self.stdout.write(f"✅ Flutterwave: Configured")
-        else:
-            self.stdout.write(f"❌ Flutterwave: Missing keys in environment")
+            if not created:
+                # Update existing gateway
+                paystack.public_key = getattr(settings, 'PAYSTACK_PUBLIC_KEY', '')
+                paystack.secret_key = getattr(settings, 'PAYSTACK_SECRET_KEY', '')
+                paystack.webhook_secret = getattr(settings, 'PAYSTACK_WEBHOOK_SECRET', '')
+                paystack.is_active = True
+                paystack.save()
+                self.stdout.write("✅ Paystack gateway updated")
+            else:
+                self.stdout.write("✅ Paystack gateway created")
+                
+            # Check configuration
+            if paystack.public_key and paystack.secret_key:
+                self.stdout.write(f"   Public Key: {paystack.public_key[:20]}...")
+                self.stdout.write(f"   Secret Key: {paystack.secret_key[:20]}...")
+                self.stdout.write(f"   Webhook Secret: {'✅ Set' if paystack.webhook_secret else '❌ Not Set'}")
+            else:
+                self.stdout.write("❌ Paystack keys not configured in settings")
+                
+        except Exception as e:
+            self.stdout.write(f"❌ Error setting up Paystack: {str(e)}")
 
-        self.stdout.write("\n⚠️  Next Steps:")
-        self.stdout.write("1. Add payment gateway keys to your .env file")
-        self.stdout.write("2. Run migrations: python manage.py migrate")
-        self.stdout.write("3. Set up webhooks in your payment gateway dashboard")
-        self.stdout.write("4. Test payments with test cards")
+    def setup_flutterwave(self):
+        """Set up Flutterwave payment gateway"""
+        self.stdout.write("\n🌍 Setting up Flutterwave...")
+        
+        try:
+            flutterwave, created = PaymentGateway.objects.get_or_create(
+                name='flutterwave',
+                defaults={
+                    'display_name': 'Flutterwave',
+                    'is_active': True,
+                    'is_default': False,
+                    'public_key': getattr(settings, 'FLUTTERWAVE_PUBLIC_KEY', ''),
+                    'secret_key': getattr(settings, 'FLUTTERWAVE_SECRET_KEY', ''),
+                    'webhook_secret': getattr(settings, 'FLUTTERWAVE_WEBHOOK_SECRET', ''),
+                    'supported_currencies': ['NGN', 'USD', 'GHS', 'KES', 'ZAR'],
+                    'transaction_fee_percentage': 0.0140,  # 1.4%
+                    'transaction_fee_cap': 2000.00,  # 2000 NGN cap
+                    'supports_transfers': True,
+                    'minimum_transfer_amount': 1000.00
+                }
+            )
+            
+            if not created:
+                # Update existing gateway
+                flutterwave.public_key = getattr(settings, 'FLUTTERWAVE_PUBLIC_KEY', '')
+                flutterwave.secret_key = getattr(settings, 'FLUTTERWAVE_SECRET_KEY', '')
+                flutterwave.webhook_secret = getattr(settings, 'FLUTTERWAVE_WEBHOOK_SECRET', '')
+                flutterwave.is_active = True
+                flutterwave.save()
+                self.stdout.write("✅ Flutterwave gateway updated")
+            else:
+                self.stdout.write("✅ Flutterwave gateway created")
+                
+            # Check configuration
+            if flutterwave.public_key and flutterwave.secret_key:
+                self.stdout.write(f"   Public Key: {flutterwave.public_key[:20]}...")
+                self.stdout.write(f"   Secret Key: {flutterwave.secret_key[:20]}...")
+                self.stdout.write(f"   Webhook Secret: {'✅ Set' if flutterwave.webhook_secret else '❌ Not Set'}")
+            else:
+                self.stdout.write("❌ Flutterwave keys not configured in settings")
+                
+        except Exception as e:
+            self.stdout.write(f"❌ Error setting up Flutterwave: {str(e)}")
+
+    def validate_webhook_urls(self):
+        """Validate webhook URLs are accessible"""
+        self.stdout.write("\n🌐 Validating Webhook URLs...")
+        
+        try:
+            # Check if webhook URLs are accessible
+            from django.test import Client
+            client = Client()
+            
+            # Test Paystack webhook
+            response = client.post('/api/payments/webhooks/paystack/', 
+                                data='{"test": "data"}', 
+                                content_type='application/json')
+            if response.status_code in [200, 400, 401]:
+                self.stdout.write("✅ Paystack webhook endpoint accessible")
+            else:
+                self.stdout.write(f"❌ Paystack webhook endpoint issue: {response.status_code}")
+            
+            # Test Flutterwave webhook
+            response = client.post('/api/payments/webhooks/flutterwave/', 
+                                data='{"test": "data"}', 
+                                content_type='application/json')
+            if response.status_code in [200, 400, 401]:
+                self.stdout.write("✅ Flutterwave webhook endpoint accessible")
+            else:
+                self.stdout.write(f"❌ Flutterwave webhook endpoint issue: {response.status_code}")
+                
+        except Exception as e:
+            self.stdout.write(f"❌ Error validating webhook URLs: {str(e)}")

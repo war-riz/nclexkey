@@ -2,7 +2,7 @@
 from django.contrib.auth.models import AnonymousUser
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
-from users.models import User, UserSession
+from users.models import User
 from utils.auth import JWTTokenManager, SecurityUtils, SecurityMonitor
 from django.utils import timezone
 import logging
@@ -128,43 +128,9 @@ class RequestLoggingMiddleware(MiddlewareMixin):
         return None
     
     
-class SessionValidationMiddleware(MiddlewareMixin):
-    """
-    Validate active sessions and update activity
-    """
-    
-    def process_request(self, request):
-        if hasattr(request, 'user') and request.user.is_authenticated:
-            session_token = request.META.get('HTTP_X_SESSION_TOKEN')
-            
-            # If no session token provided, skip session validation for JWT-only auth
-            if not session_token:
-                return None
-                
-            try:
-                session = UserSession.objects.get(
-                    user=request.user,
-                    session_token=session_token,
-                    is_active=True
-                )
-                
-                # Check if session is expired (24 hours of inactivity)
-                if session.last_activity and (timezone.now() - session.last_activity).total_seconds() > 86400:
-                    session.is_active = False
-                    session.save()
-                    request.user = AnonymousUser()
-                    return None
-                
-                # Update last activity
-                session.last_activity = timezone.now()
-                session.save(update_fields=['last_activity'])
-                
-            except UserSession.DoesNotExist:
-                # For JWT-only authentication, don't reset user if no session token provided
-                # Only reset if session token was explicitly provided but is invalid
-                pass  # Don't reset user - let JWT authentication work
-        
-        return None
+# SessionValidationMiddleware removed - UserSession model not available
+# This middleware was designed for session-based authentication
+# The system now uses JWT-only authentication
     
 
 class RateLimitMiddleware(MiddlewareMixin):
@@ -175,17 +141,21 @@ class RateLimitMiddleware(MiddlewareMixin):
     def process_request(self, request):
         # Define rate limits for different endpoints
         rate_limits = {
-            '/api/auth/login/': {'limit': 3, 'window': 900, 'message': 'Too many login attempts'},
-            '/api/auth/register/': {'limit': 3, 'window': 3600, 'message': 'Too many registration attempts'},
-            '/api/auth/forgot-password/': {'limit': 3, 'window': 3600, 'message': 'Too many password reset requests'},
-            '/api/auth/reset-password/confirm/': {'limit': 3, 'window': 3600, 'message': 'Too many password reset attempts'},
-            '/api/auth/verify-email/': {'limit': 3, 'window': 3600, 'message': 'Too many email verification attempts'},
-            '/api/auth/refresh/': {'limit': 10, 'window': 300, 'message': 'Too many token refresh attempts'},
-            '/api/auth/resend-verification/': {'limit': 3, 'window': 3600, 'message': 'Too many verification email requests'},
-            '/api/auth/2fa/emergency-disable/': {'limit': 3, 'window': 3600, 'message': 'Too many emergency 2FA disable requests'},
-            '/api/auth/change-password/': {'limit': 3, 'window': 3600, 'message': 'Too many password change attempts'},
-            '/api/auth/account-status/': {'limit': 30, 'window': 300, 'message': 'Too many account status checks'},
-            '/api/auth/2fa/admin/approve-emergency/': {'limit': 10, 'window': 300, 'message': 'Too many admin 2FA approvals'},
+            '/api/auth/login': {'limit': 3, 'window': 900, 'message': 'Too many login attempts'},
+            '/api/auth/register': {'limit': 3, 'window': 3600, 'message': 'Too many registration attempts'},
+            '/api/auth/forgot-password': {'limit': 3, 'window': 3600, 'message': 'Too many password reset requests'},
+            '/api/auth/reset-password/confirm': {'limit': 3, 'window': 3600, 'message': 'Too many password reset attempts'},
+            '/api/auth/verify-email': {'limit': 3, 'window': 3600, 'message': 'Too many email verification attempts'},
+            '/api/auth/refresh': {'limit': 10, 'window': 300, 'message': 'Too many token refresh attempts'},
+            '/api/auth/resend-verification': {'limit': 3, 'window': 3600, 'message': 'Too many verification email requests'},
+            '/api/auth/2fa/emergency-disable': {'limit': 3, 'window': 3600, 'message': 'Too many emergency 2FA disable requests'},
+            '/api/auth/change-password': {'limit': 3, 'window': 3600, 'message': 'Too many password change attempts'},
+            '/api/auth/account-status': {'limit': 30, 'window': 300, 'message': 'Too many account status checks'},
+            '/api/auth/2fa/admin/approve-emergency': {'limit': 10, 'window': 300, 'message': 'Too many admin 2FA approvals'},
+            # Superadmin endpoints
+            '/api/superadmin/login': {'limit': 5, 'window': 900, 'message': 'Too many superadmin login attempts'},
+            '/api/superadmin/dashboard': {'limit': 30, 'window': 300, 'message': 'Too many dashboard requests'},
+            '/api/superadmin/users': {'limit': 20, 'window': 300, 'message': 'Too many user management requests'},
         }
         
         if request.path in rate_limits:
@@ -223,7 +193,7 @@ class RateLimitMiddleware(MiddlewareMixin):
                 }, status=429)
             
             # Email-based rate limiting for relevant endpoints
-            if request.path in ['/api/auth/login/', '/api/auth/forgot-password/', '/api/auth/register/']:
+            if request.path in ['/api/auth/login', '/api/auth/forgot-password', '/api/auth/register']:
                 email = self._get_email_from_request(request)
                 if email:
                     email_cache_key = f"rate_limit_{request.path}_email_{email}"

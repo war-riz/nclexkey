@@ -23,7 +23,6 @@ from .serializers import (
 from users.models import User
 from utils.auth import EmailService
 from utils.admin_email_service import AdminEmailService
-from payments.services import PaymentServiceFactory
 from payments.models import PaymentGateway, Payment
 import logging
 import random
@@ -397,10 +396,9 @@ def enroll_course(request, course_id):
 
             # Initialize payment
             try:
-                payment_service = PaymentServiceFactory.get_service(gateway.name)
-                payment_result = payment_service.initialize_payment(payment, callback_url)
+                payment_service = PaymentGateway.objects.get(name=gateway_name).initialize_payment(payment, callback_url)
 
-                if payment_result['success']:
+                if payment_service.success:
                     # Create pending enrollment with payment reference
                     enrollment = CourseEnrollment.objects.create(
                         user=user,
@@ -416,7 +414,7 @@ def enroll_course(request, course_id):
 
                     return Response({
                         'message': 'Payment initialized successfully.',
-                        'payment_url': payment_result['payment_url'],
+                        'payment_url': payment_service.payment_url,
                         'reference': payment.reference,
                         'enrollment_id': str(enrollment.id),
                         'amount': float(amount),
@@ -427,18 +425,13 @@ def enroll_course(request, course_id):
 
                 else:
                     payment.status = 'failed'
-                    payment.gateway_response = payment_result
+                    payment.gateway_response = payment_service.response
                     payment.save()
                     return Response(
-                        {'detail': payment_result.get('message', 'Payment initialization failed')},
+                        {'detail': payment_service.message},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-            except ValueError as e:
-                return Response(
-                    {'detail': str(e)},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
             except Exception as e:
                 logger.error(f"Payment initialization error: {str(e)}")
                 return Response(
@@ -486,17 +479,16 @@ def verify_payment(request):
         
         # Verify payment
         try:
-            payment_service = PaymentServiceFactory.get_service(payment.gateway.name)
-            verification_result = payment_service.verify_payment(reference)
+            payment_service = PaymentGateway.objects.get(name=payment.gateway.name).verify_payment(reference)
             
-            if verification_result['success'] and verification_result['verified']:
+            if payment_service.success and payment_service.verified:
                 # Check if payment was actually successful
-                if verification_result.get('status') == 'success':
+                if payment_service.status == 'success':
                     with transaction.atomic():
                         # Update payment record
                         payment.status = 'completed'
                         payment.paid_at = timezone.now()
-                        payment.gateway_response = verification_result['data']
+                        payment.gateway_response = payment_service.data
                         payment.save()
                         
                         # Update enrollment
@@ -545,20 +537,21 @@ def verify_payment(request):
                     enrollment.save(update_fields=['payment_status'])
                     
                     return Response(
-                        {'detail': f'Payment failed: {verification_result.get("message", "Unknown error")}'},
+                        {'detail': f'Payment failed: {payment_service.message}'},
                         status=status.HTTP_400_BAD_REQUEST
                     )
             
             else:
                 return Response(
-                    {'detail': verification_result.get('message', 'Payment verification failed')},
+                    {'detail': payment_service.message},
                     status=status.HTTP_400_BAD_REQUEST
                 )
                 
-        except ValueError as e:
+        except Exception as e:
+            logger.error(f"Payment verification error: {str(e)}")
             return Response(
-                {'detail': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
+                {'detail': 'Payment verification failed.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
     except (Payment.DoesNotExist, CourseEnrollment.DoesNotExist):
