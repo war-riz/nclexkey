@@ -33,12 +33,11 @@ class JWTAuthentication(BaseAuthentication):
         token = auth_header.split(' ')[1]
         
         try:
-            # Verify token using JWTTokenManager
-            payload, error_info = JWTTokenManager.verify_access_token(token)
+            # Verify token using JWT decode directly
+            import jwt
+            from django.conf import settings
             
-            if error_info:
-                # Token verification failed
-                raise AuthenticationFailed(error_info['message'])
+            payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=['HS256'])
             
             # Token is valid - get user from database
             try:
