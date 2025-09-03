@@ -93,16 +93,6 @@ export default function ClientLoginPage() {
             </div>
             <CardTitle className="text-2xl font-semibold tracking-tight">Sign In</CardTitle>
             <CardDescription className="text-muted-foreground">Access your NCLEX Prep account.</CardDescription>
-            
-            {/* Instructor Credentials Display */}
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="text-sm font-semibold text-blue-800 mb-2">Instructor Login</h3>
-              <div className="text-xs text-blue-700 space-y-1">
-                <p><strong>Email:</strong> instructor@nclexprep.com</p>
-                <p><strong>Password:</strong> instructor123</p>
-              </div>
-              <p className="text-xs text-blue-600 mt-1">Use these credentials to access the instructor dashboard</p>
-            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleLogin} className="space-y-4">

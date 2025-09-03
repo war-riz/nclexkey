@@ -67,6 +67,9 @@ async function handleResponse(response) {
   if (data.access_token) {
     localStorage.setItem("access_token", data.access_token)
   }
+  if (data.token) {
+    localStorage.setItem("access_token", data.token)  // Store as access_token for consistency
+  }
   if (data.refresh_token) {
     localStorage.setItem("refresh_token", data.refresh_token)
   }
@@ -146,7 +149,7 @@ export async function apiRequest(url, options = {}) {
 
 // 1. User Registration
 export async function register({ email, fullName, phoneNumber, role, password, confirmPassword }) {
-  return apiRequest(`/api/auth/register`, {
+  return apiRequest(`/auth/register`, {
     method: "POST",
     body: JSON.stringify({
       email,
@@ -170,7 +173,7 @@ export async function login({ email, password, twoFactorToken = "", backupCode =
     payload.backup_code = backupCode
   }
   
-  return apiRequest(`/api/auth/login`, {
+  return apiRequest(`/auth/login`, {
     method: "POST",
     body: JSON.stringify(payload),
   })
