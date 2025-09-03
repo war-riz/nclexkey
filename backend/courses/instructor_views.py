@@ -20,7 +20,7 @@ from .serializers import (
     CourseLessonSerializer, CourseLessonCreateSerializer,
     UserLessonProgressSerializer, UserLessonProgressUpdateSerializer
 )
-from common.permissions import IsAuthenticated, IsAdmin, IsInstructor
+from common.permissions import IsAuthenticated, IsAdmin
 from users.models import User
 from utils.auth import EmailService
 from django.utils.text import slugify
@@ -113,7 +113,7 @@ def upload_video(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsInstructor])
+@permission_classes([IsAdmin])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
 def create_course(request):
     """
@@ -3577,5 +3577,208 @@ def get_my_appeals(request):
         logger.error(f"Get instructor appeals error: {str(e)}")
         return Response(
             {'detail': 'Failed to fetch appeals.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def instructor_dashboard(request):
+    """
+    Instructor: Get dashboard overview data
+    GET /api/admin/dashboard/
+    """
+    try:
+        user = request.user
+        
+        # Get basic counts
+        total_courses = Course.objects.filter(instructor=user).count()
+        active_courses = Course.objects.filter(instructor=user, is_active=True).count()
+        total_students = CourseEnrollment.objects.filter(
+            course__instructor=user
+        ).values('user').distinct().count()
+        
+        # Get recent activity
+        recent_courses = Course.objects.filter(
+            instructor=user
+        ).order_by('-created_at')[:5]
+        
+        recent_enrollments = CourseEnrollment.objects.filter(
+            course__instructor=user
+        ).select_related('user', 'course').order_by('-enrolled_at')[:5]
+        
+        # Get basic stats
+        total_revenue = CourseEnrollment.objects.filter(
+            course__instructor=user,
+            payment_status='completed'
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        dashboard_data = {
+            'overview': {
+                'total_courses': total_courses,
+                'active_courses': active_courses,
+                'total_students': total_students,
+                'total_revenue': float(total_revenue)
+            },
+            'recent_courses': [
+                {
+                    'id': str(course.id),
+                    'title': course.title,
+                    'status': course.status,
+                    'created_at': course.created_at
+                } for course in recent_courses
+            ],
+            'recent_enrollments': [
+                {
+                    'id': str(enrollment.id),
+                    'student_name': enrollment.user.full_name,
+                    'course_title': enrollment.course.title,
+                    'enrolled_at': enrollment.enrolled_at,
+                    'amount_paid': float(enrollment.amount_paid)
+                } for enrollment in recent_enrollments
+            ]
+        }
+        
+        return Response(dashboard_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Instructor dashboard error: {str(e)}")
+        return Response(
+            {'detail': 'Failed to load dashboard data.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_students(request):
+    """
+    Instructor: Get all students enrolled in their courses
+    GET /api/admin/students/
+    """
+    try:
+        user = request.user
+        
+        # Get all students enrolled in instructor's courses
+        enrollments = CourseEnrollment.objects.filter(
+            course__instructor=user
+        ).select_related('user', 'course').order_by('-enrolled_at')
+        
+        students_data = []
+        for enrollment in enrollments:
+            # Get progress for this student in this course
+            try:
+                progress = UserCourseProgress.objects.get(
+                    user=enrollment.user,
+                    course=enrollment.course
+                )
+                progress_percentage = progress.progress_percentage
+                last_activity = progress.last_activity
+            except UserCourseProgress.DoesNotExist:
+                progress_percentage = 0
+                last_activity = None
+            
+            students_data.append({
+                'id': str(enrollment.user.id),
+                'full_name': enrollment.user.full_name,
+                'email': enrollment.user.email,
+                'course_id': str(enrollment.course.id),
+                'course_title': enrollment.course.title,
+                'enrolled_at': enrollment.enrolled_at,
+                'payment_status': enrollment.payment_status,
+                'amount_paid': float(enrollment.amount_paid),
+                'progress_percentage': progress_percentage,
+                'last_activity': last_activity
+            })
+        
+        return Response({
+            'students': students_data,
+            'total_students': len(students_data)
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Get all students error: {str(e)}")
+        return Response(
+            {'detail': 'Failed to fetch students data.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def instructor_stats(request):
+    """
+    Instructor: Get comprehensive statistics
+    GET /api/admin/stats/
+    """
+    try:
+        user = request.user
+        
+        # Get date range from query params
+        days = int(request.query_params.get('days', 30))
+        start_date = timezone.now() - timedelta(days=days)
+        
+        # Course statistics
+        total_courses = Course.objects.filter(instructor=user).count()
+        active_courses = Course.objects.filter(instructor=user, is_active=True).count()
+        suspended_courses = Course.objects.filter(instructor=user, status='suspended').count()
+        
+        # Enrollment statistics
+        total_enrollments = CourseEnrollment.objects.filter(
+            course__instructor=user
+        ).count()
+        
+        recent_enrollments = CourseEnrollment.objects.filter(
+            course__instructor=user,
+            enrolled_at__gte=start_date
+        ).count()
+        
+        # Revenue statistics
+        total_revenue = CourseEnrollment.objects.filter(
+            course__instructor=user,
+            payment_status='completed'
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        recent_revenue = CourseEnrollment.objects.filter(
+            course__instructor=user,
+            payment_status='completed',
+            enrolled_at__gte=start_date
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        # Student engagement
+        active_students = CourseEnrollment.objects.filter(
+            course__instructor=user,
+            user__last_activity__gte=start_date
+        ).values('user').distinct().count()
+        
+        stats_data = {
+            'period': f'Last {days} days',
+            'courses': {
+                'total': total_courses,
+                'active': active_courses,
+                'suspended': suspended_courses
+            },
+            'enrollments': {
+                'total': total_enrollments,
+                'recent': recent_enrollments
+            },
+            'revenue': {
+                'total': float(total_revenue),
+                'recent': float(recent_revenue)
+            },
+            'students': {
+                'total': CourseEnrollment.objects.filter(
+                    course__instructor=user
+                ).values('user').distinct().count(),
+                'active': active_students
+            }
+        }
+        
+        return Response(stats_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Instructor stats error: {str(e)}")
+        return Response(
+            {'detail': 'Failed to fetch statistics.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

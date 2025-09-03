@@ -80,4 +80,9 @@ urlpatterns = [
     
     # Course structure only (sections, lessons, exams - no statistics)
     path('courses/<uuid:course_id>/structure/', instructor_views.get_course_structure_only,name='admin-course-structure'),  
+    
+    # Missing endpoints for admin dashboard
+    path('dashboard/', instructor_views.instructor_dashboard, name='admin_dashboard'),
+    path('students/', instructor_views.get_all_students, name='admin_get_all_students'),
+    path('stats/', instructor_views.instructor_stats, name='admin_instructor_stats'),
 ]
