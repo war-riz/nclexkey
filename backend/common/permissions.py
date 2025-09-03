@@ -46,7 +46,7 @@ class IsAdmin(BasePermission):
             print("User has no role attribute - permission denied")
             return False
             
-        result = request.user.role in ['admin', 'super_admin']
+        result = request.user.role in ['admin', 'super_admin', 'instructor']
         print(f"Admin role check result: {result}")
         return result
 
@@ -82,23 +82,6 @@ class IsUser(BasePermission):
         
         result = hasattr(request.user, 'role') and request.user.role == 'user'
         print(f"User role check result: {result}")
-        return result
-
-class IsInstructor(BasePermission):
-    """
-    Permission class to check if user is instructor
-    """
-    def has_permission(self, request, view):
-        print("=== IsInstructor Permission Check ===")
-        print(f"Request user: {request.user}")
-        print(f"User role: {getattr(request.user, 'role', 'No role attribute')}")
-        
-        if not request.user or request.user.is_anonymous or not request.user.is_authenticated:
-            print("User not authenticated - permission denied")
-            return False
-        
-        result = hasattr(request.user, 'role') and request.user.role == 'instructor'
-        print(f"Instructor role check result: {result}")
         return result
 
 class IsOwnerOrAdmin(BasePermission):
