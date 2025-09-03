@@ -1938,31 +1938,63 @@ def get_exam_results(request, attempt_id):
 @permission_classes([IsAuthenticated])
 def user_dashboard(request):
     """
-    Get user dashboard data
-    GET /api/users/dashboard/
+    Student Dashboard: Shows ALL available courses (including pending ones) + user progress
+    GET /api/student/dashboard/
     """
     try:
         user = request.user
         
-        # Get course enrollments and progress
-        enrollments = CourseEnrollment.objects.filter(
-            user=user,
+        # Get ALL courses (including pending ones) so students can see what's coming
+        courses = Course.objects.all().select_related(
+            'created_by', 'category'
+        ).prefetch_related('reviews').order_by('-created_at')
+        
+        # Get user's enrolled courses
+        enrolled_courses = CourseEnrollment.objects.filter(
+            user=user, 
             is_active=True
-        ).select_related('course')
+        ).values_list('course_id', flat=True)
         
-        progress_data = UserCourseProgress.objects.filter(user=user).select_related('course')
+        # Prepare course data
+        course_data = []
+        for course in courses:
+            course_info = {
+                'id': course.id,
+                'title': course.title,
+                'description': course.description,
+                'thumbnail': course.thumbnail.url if course.thumbnail else None,
+                'video_url': course.get_video_url(),
+                'course_type': course.course_type,
+                'price': float(course.price),
+                'currency': course.currency,
+                'duration_minutes': course.duration_minutes,
+                'difficulty_level': course.difficulty_level,
+                'category': course.get_category_name(),
+                'is_active': course.is_active,
+                'moderation_status': course.moderation_status,
+                'is_enrolled': course.id in enrolled_courses,
+                'can_enroll': course.is_active and course.moderation_status == 'approved',
+                'instructor_name': course.created_by.full_name if course.created_by else 'Unknown',
+                'created_at': course.created_at,
+                'total_students': CourseEnrollment.objects.filter(course=course, is_active=True).count(),
+                'average_rating': course.reviews.aggregate(Avg('rating'))['rating__avg'] or 0
+            }
+            course_data.append(course_info)
         
-        # Calculate statistics
-        total_courses = enrollments.count()
-        completed_courses = progress_data.filter(progress_percentage=100).count()
-        in_progress_courses = progress_data.filter(
-            progress_percentage__gt=0,
-            progress_percentage__lt=100
-        ).count()
+        # Get user's progress
+        user_progress = UserCourseProgress.objects.filter(user=user).select_related('course')
         
-        # Get recent activity
-        recent_progress = progress_data.order_by('-last_accessed')[:5]
-        recent_enrollments = enrollments.order_by('-enrolled_at')[:5]
+        # Get user's enrolled courses with progress
+        enrolled_progress = []
+        for progress in user_progress:
+            enrolled_progress.append({
+                'course_id': progress.course.id,
+                'course_title': progress.course.title,
+                'progress_percentage': progress.progress_percentage,
+                'completed_lessons': progress.completed_lessons,
+                'total_lessons': progress.total_lessons,
+                'last_accessed': progress.last_accessed
+            })
         
         # Get exam attempts
         recent_attempts = UserExamAttempt.objects.filter(
@@ -1976,29 +2008,33 @@ def user_dashboard(request):
         ).select_related('exam', 'exam__course').order_by('-issued_at')
         
         # Calculate total spent
-        total_spent = enrollments.filter(
+        total_spent = CourseEnrollment.objects.filter(
+            user=user,
             payment_status='completed'
-        ).aggregate(
-            total=Sum('amount_paid')
-        )['total'] or 0
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
         
-        return Response({
+        dashboard_data = {
             'user_info': {
                 'name': user.full_name,
                 'email': user.email,
                 'joined_date': user.date_joined
             },
+            'available_courses': course_data,
+            'enrolled_courses': enrolled_progress,
             'statistics': {
-                'total_courses': total_courses,
-                'completed_courses': completed_courses,
-                'in_progress_courses': in_progress_courses,
-                'completion_rate': round((completed_courses / total_courses * 100), 2) if total_courses > 0 else 0,
+                'total_courses_available': len([c for c in course_data if c['can_enroll']]),
+                'total_courses_pending': len([c for c in course_data if c['moderation_status'] == 'pending']),
+                'total_courses_enrolled': len(enrolled_progress),
+                'completed_courses': user_progress.filter(progress_percentage=100).count(),
+                'in_progress_courses': user_progress.filter(
+                    progress_percentage__gt=0,
+                    progress_percentage__lt=100
+                ).count(),
                 'total_spent': float(total_spent),
                 'certificates_earned': certificates.count()
             },
             'recent_activity': {
-                'course_progress': UserCourseProgressSerializer(recent_progress, many=True).data,
-                'enrollments': CourseEnrollmentSerializer(recent_enrollments, many=True).data,
+                'course_progress': UserCourseProgressSerializer(user_progress.order_by('-last_accessed')[:5], many=True).data,
                 'exam_attempts': UserExamAttemptSerializer(recent_attempts, many=True).data
             },
             'certificates': [
@@ -2012,7 +2048,9 @@ def user_dashboard(request):
                 }
                 for cert in certificates
             ]
-        }, status=status.HTTP_200_OK)
+        }
+        
+        return Response(dashboard_data, status=status.HTTP_200_OK)
     
     except Exception as e:
         logger.error(f"User dashboard error: {str(e)}")

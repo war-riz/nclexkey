@@ -120,10 +120,21 @@ def create_course(request):
     Admin: Create New Course with Video Upload Support and Auto Thumbnail
     POST /api/admin/courses/
     """
+    
+    # Debug: Log what we're receiving
+    print("=== CREATE COURSE DEBUG ===")
+    print(f"Request data keys: {list(request.data.keys())}")
+    print(f"Request FILES keys: {list(request.FILES.keys())}")
+    print(f"Request user: {request.user}")
+    print(f"Request user role: {getattr(request.user, 'role', 'No role')}")
+    
+    for key, value in request.data.items():
+        print(f"Data[{key}]: {value}")
 
     serializer = CourseCreateUpdateSerializer(data=request.data, context={'request': request})
     
     if not serializer.is_valid():
+        print(f"Serializer errors: {serializer.errors}")
         return Response(
             {'detail': 'Invalid input data.', 'errors': serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
@@ -3609,7 +3620,7 @@ def instructor_dashboard(request):
         
         # Get basic stats
         total_revenue = CourseEnrollment.objects.filter(
-            course__instructor=user,
+            course__created_by=user,
             payment_status='completed'
         ).aggregate(total=Sum('amount_paid'))['total'] or 0
         
@@ -3661,7 +3672,7 @@ def get_all_students(request):
         
         # Get all students enrolled in instructor's courses
         enrollments = CourseEnrollment.objects.filter(
-            course__instructor=user
+            course__created_by=user
         ).select_related('user', 'course').order_by('-enrolled_at')
         
         students_data = []
