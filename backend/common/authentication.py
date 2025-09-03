@@ -3,7 +3,6 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth.models import AnonymousUser
 from users.models import User
-from utils.auth import JWTTokenManager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,15 +17,20 @@ class JWTAuthentication(BaseAuthentication):
         """
         Authenticate the request and return a (user, token) tuple or None
         """
+        logger.info(f"JWT Authentication attempt for path: {request.path}")
+        
         # Skip JWT authentication for admin URLs and static files
         if request.path.startswith('/admin/') or request.path.startswith('/static/'):
+            logger.info("Skipping JWT auth for admin/static path")
             return None
         
         # Get token from Authorization header
         auth_header = request.META.get('HTTP_AUTHORIZATION')
+        logger.info(f"Authorization header: {auth_header[:50] if auth_header else 'None'}")
         
         if not auth_header or not auth_header.startswith('Bearer '):
             # No token provided - return None (anonymous)
+            logger.info("No valid Authorization header found")
             return None
         
         # Extract token
