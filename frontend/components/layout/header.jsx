@@ -15,7 +15,7 @@ export function Header() {
         <Link href="/" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
           Home
         </Link>
-        <Link href="#about-school" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
+        <Link href="/about" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
           About
         </Link>
         <Link href="#our-courses" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
@@ -39,7 +39,7 @@ export function Header() {
           <Link href="/login">Sign In</Link>
         </Button>
         <Button asChild className="bg-[#4F46E5] text-white hover:bg-[#3b34b0] transition-colors px-6 py-2 rounded-md">
-          <Link href="/register">Get Started</Link>
+          <Link href="/register">Register</Link>
         </Button>
       </div>
       <Sheet>
@@ -54,7 +54,7 @@ export function Header() {
             <Link href="/" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
               Home
             </Link>
-            <Link href="#about-school" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
+            <Link href="/about" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
               About
             </Link>
             <Link href="#our-courses" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
@@ -76,7 +76,7 @@ export function Header() {
               <Link href="/login">Sign In</Link>
             </Button>
             <Button asChild className="bg-[#4F46E5] text-white hover:bg-[#3b34b0] transition-colors">
-              <Link href="/register">Get Started</Link>
+              <Link href="/register">Register</Link>
             </Button>
           </div>
         </SheetContent>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,7 +21,7 @@ import {
 import CourseEnrollmentButton from '@/components/course-enrollment-button'
 import { listAllCourses, getCourseCategoriesPublic } from '@/lib/api'
 
-export default function CoursesPage() {
+function CoursesPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [courses, setCourses] = useState([])
@@ -281,6 +281,14 @@ export default function CoursesPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function CoursesPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CoursesPageContent />
+    </Suspense>
   )
 }
 

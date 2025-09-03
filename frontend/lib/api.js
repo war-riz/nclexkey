@@ -3,7 +3,6 @@
 // IMPORTANT: Ensure this URL points to your running backend API.
 // If your backend is deployed, update NEXT_PUBLIC_API_BASE_URL in your Vercel project settings
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-const SUPERADMIN_API_BASE_URL = `${API_BASE_URL}/api/super-admin`
 const INSTRUCTOR_API_BASE_URL = `${API_BASE_URL}/api/admin`
 const STUDENT_API_BASE_URL = `${API_BASE_URL}/api/courses`
 
@@ -147,7 +146,7 @@ export async function apiRequest(url, options = {}) {
 
 // 1. User Registration
 export async function register({ email, fullName, phoneNumber, role, password, confirmPassword }) {
-  return apiRequest(`/api/auth/register/`, {
+  return apiRequest(`/api/auth/register`, {
     method: "POST",
     body: JSON.stringify({
       email,
@@ -171,7 +170,7 @@ export async function login({ email, password, twoFactorToken = "", backupCode =
     payload.backup_code = backupCode
   }
   
-  return apiRequest(`/api/auth/login/`, {
+  return apiRequest(`/api/auth/login`, {
     method: "POST",
     body: JSON.stringify(payload),
   })
@@ -184,7 +183,7 @@ export async function refreshToken() {
     return { success: false, error: { message: "No refresh token available" } }
   }
   
-  return apiRequest(`/api/auth/refresh/`, {
+  return apiRequest(`/api/auth/refresh`, {
     method: "POST",
     body: JSON.stringify({ refresh_token: refreshToken }),
   })
@@ -193,7 +192,7 @@ export async function refreshToken() {
 // 4. Logout
 export async function logout() {
   const refreshToken = localStorage.getItem("refresh_token")
-  const result = await apiRequest(`/api/auth/logout/`, {
+  const result = await apiRequest(`/api/auth/logout`, {
     method: "POST",
     body: JSON.stringify({ refresh_token: refreshToken }),
   })
@@ -213,7 +212,7 @@ export async function logout() {
 
 // 5. Logout All Devices
 export async function logoutAllDevices() {
-  const result = await apiRequest(`/api/auth/logout-all/`, { method: "POST" })
+  const result = await apiRequest(`/api/auth/logout-all`, { method: "POST" })
   if (result.success) {
     localStorage.removeItem("access_token")
     localStorage.removeItem("refresh_token")
@@ -224,15 +223,14 @@ export async function logoutAllDevices() {
 
 // 6. Verify Email
 export async function verifyEmail(token) {
-  return apiRequest(`/api/auth/verify-email/`, {
+  return apiRequest(`/api/auth/verify-email`, {
     method: "POST",
     body: JSON.stringify({ token }),
   })
 }
 
-// 7. Resend Verification Email
-export async function resendEmailVerification(email) {
-  return apiRequest(`/api/auth/resend-verification/`, {
+export async function resendVerification(email) {
+  return apiRequest(`/api/auth/resend-verification`, {
     method: "POST",
     body: JSON.stringify({ email }),
   })
@@ -240,7 +238,7 @@ export async function resendEmailVerification(email) {
 
 // 8. Forgot Password
 export async function forgotPassword(email) {
-  return apiRequest(`/api/auth/forgot-password/`, {
+  return apiRequest(`/api/auth/forgot-password`, {
     method: "POST",
     body: JSON.stringify({ email }),
   })
@@ -248,7 +246,7 @@ export async function forgotPassword(email) {
 
 // 9. Reset Password Confirmation
 export async function resetPassword(token, newPassword, confirmNewPassword) {
-  return apiRequest(`/api/auth/reset-password/confirm/`, {
+  return apiRequest(`/api/auth/reset-password/confirm`, {
     method: "POST",
     body: JSON.stringify({
       token,
@@ -260,7 +258,7 @@ export async function resetPassword(token, newPassword, confirmNewPassword) {
 
 // 10. Change Password (Authenticated)
 export async function changePassword(currentPassword, newPassword, confirmNewPassword) {
-  return apiRequest(`/api/auth/change-password/`, {
+  return apiRequest(`/api/auth/change-password`, {
     method: "POST",
     body: JSON.stringify({
       current_password: currentPassword,
@@ -272,17 +270,17 @@ export async function changePassword(currentPassword, newPassword, confirmNewPas
 
 // 11. Get 2FA Status
 export async function get2FAStatus() {
-  return apiRequest(`/api/auth/2fa/status/`, { method: "GET" })
+  return apiRequest(`/api/auth/2fa/status`, { method: "GET" })
 }
 
 // 12. Enable 2FA - Step 1
 export async function enable2FA() {
-  return apiRequest(`/api/auth/2fa/enable/`, { method: "POST" })
+  return apiRequest(`/api/auth/2fa/enable`, { method: "POST" })
 }
 
 // 13. Enable 2FA - Step 2 (Confirmation)
 export async function confirm2FA(token) {
-  return apiRequest(`/api/auth/2fa/confirm/`, {
+  return apiRequest(`/api/auth/2fa/confirm`, {
     method: "POST",
     body: JSON.stringify({ token }),
   })
@@ -290,7 +288,7 @@ export async function confirm2FA(token) {
 
 // 14. Disable 2FA
 export async function disable2FA(password, token) {
-  return apiRequest(`/api/auth/2fa/disable/`, {
+  return apiRequest(`/api/auth/2fa/disable`, {
     method: "POST",
     body: JSON.stringify({ password, token }),
   })
@@ -298,12 +296,12 @@ export async function disable2FA(password, token) {
 
 // 15. Generate Backup Codes
 export async function generateBackupCodes() {
-  return apiRequest(`/api/auth/2fa/backup-codes/`, { method: "POST" })
+  return apiRequest(`/api/auth/2fa/backup-codes`, { method: "POST" })
 }
 
 // 16. Regenerate Backup Codes
 export async function regenerateBackupCodes(token) {
-  return apiRequest(`/api/auth/2fa/regenerate-backup-codes/`, {
+  return apiRequest(`/api/auth/2fa/regenerate-backup-codes`, {
     method: "POST",
     body: JSON.stringify({ token }),
   })
@@ -311,7 +309,7 @@ export async function regenerateBackupCodes(token) {
 
 // 17. Emergency 2FA Disable
 export async function emergency2FADisable(email, password) {
-  return apiRequest(`/api/auth/2fa/emergency-disable/`, {
+  return apiRequest(`/api/auth/2fa/emergency-disable`, {
     method: "POST",
     body: JSON.stringify({ email, password }),
   })
@@ -319,12 +317,19 @@ export async function emergency2FADisable(email, password) {
 
 // 18. Get User Profile
 export async function getUserProfile() {
-  return apiRequest(`/api/auth/users/me/`, { method: "GET" })
+  return apiRequest(`/api/auth/users/me`, { method: "GET" })
+}
+
+export async function updateUserProfile(profileData) {
+  return apiRequest(`/api/auth/users/me/update`, {
+    method: "PUT",
+    body: JSON.stringify(profileData),
+  })
 }
 
 // 19. Update User Profile
 export async function updateProfile(profileData) {
-  return apiRequest(`/api/auth/users/me/update/`, {
+  return apiRequest(`/api/auth/users/me/update`, {
     method: "PUT",
     body: JSON.stringify(profileData),
   })
@@ -335,7 +340,7 @@ export async function uploadProfilePicture(imageFile) {
   const formData = new FormData()
   formData.append("profile_picture", imageFile)
   
-  return apiRequest(`/api/auth/profile/picture/`, {
+  return apiRequest(`/api/auth/profile/picture`, {
     method: "POST",
     headers: {}, // Remove Content-Type to let browser set it for FormData
     body: formData,
@@ -344,17 +349,21 @@ export async function uploadProfilePicture(imageFile) {
 
 // 21. Delete Profile Picture
 export async function deleteProfilePicture() {
-  return apiRequest(`/api/auth/profile/picture/delete/`, { method: "DELETE" })
+  return apiRequest(`/api/auth/profile/picture/delete`, { method: "DELETE" })
 }
 
 // 22. Get User Sessions
 export async function getUserSessions() {
-  return apiRequest(`/api/auth/sessions/`, { method: "GET" })
+  return apiRequest(`/api/auth/sessions`, { method: "GET" })
+}
+
+export async function deleteUserSession(sessionId) {
+  return apiRequest(`/api/auth/sessions/${sessionId}`, { method: "DELETE" })
 }
 
 // 23. Request Account Deletion
 export async function requestAccountDeletion(password) {
-  return apiRequest(`/api/auth/delete-account/`, {
+  return apiRequest(`/api/auth/delete-account`, {
     method: "POST",
     body: JSON.stringify({ password, confirm_deletion: true }),
   })
@@ -362,7 +371,7 @@ export async function requestAccountDeletion(password) {
 
 // 24. Cancel Account Deletion
 export async function cancelAccountDeletion(password) {
-  return apiRequest(`/api/auth/cancel-deletion/`, {
+  return apiRequest(`/api/auth/cancel-deletion`, {
     method: "POST",
     body: JSON.stringify({ password }),
   })
@@ -370,26 +379,13 @@ export async function cancelAccountDeletion(password) {
 
 // 25. Delete Account Immediately
 export async function deleteAccountImmediate(password) {
-  return apiRequest(`/api/auth/delete-account-immediate/`, {
+  return apiRequest(`/api/auth/delete-account-immediate`, {
     method: "POST",
     body: JSON.stringify({ password, confirm_deletion: true }),
   })
 }
 
-// --- PLATFORM ADMIN ENDPOINTS ---
 
-// 26. List Emergency 2FA Disable Requests
-export async function listEmergency2FADisableRequests() {
-  return apiRequest(`/api/2fa/super_admin/list-emergency/`, { method: "GET" })
-}
-
-// 27. Approve/Reject Emergency 2FA Disable
-export async function approveEmergency2FADisable(emergencyToken, approve, reason = "") {
-  return apiRequest(`/api/2fa/super_admin/approve-emergency/`, {
-    method: "POST",
-    body: JSON.stringify({ emergency_token: emergencyToken, approve, reason }),
-  })
-}
 
 // --- STUDENT API ENDPOINTS ---
 
@@ -460,7 +456,7 @@ export const paymentAPI = {
     
     console.log('Initializing payment with payload:', payload)
     
-    return apiRequest(`/api/payments/initialize/`, {
+    return apiRequest(`/api/payments/initialize`, {
       method: "POST",
       body: JSON.stringify(payload),
     })
@@ -468,7 +464,7 @@ export const paymentAPI = {
 
   // Verify payment status
   verifyPayment: async (paymentId) => {
-    return apiRequest(`/api/payments/verify/${paymentId}/`, {
+    return apiRequest(`/api/payments/verify/${paymentId}`, {
       method: "POST",
     })
   },
@@ -476,35 +472,35 @@ export const paymentAPI = {
   // Get payment history
   getPaymentHistory: async (params = {}) => {
     const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`/api/payments/transactions/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
+    return apiRequest(`/api/payments/history${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
   // Get payment details
   getPaymentDetails: async (paymentId) => {
-    return apiRequest(`/api/payments/transactions/${paymentId}/`, { method: "GET" })
+    return apiRequest(`/api/payments/transactions/${paymentId}`, { method: "GET" })
   },
 
   // Cancel payment
   cancelPayment: async (paymentId) => {
-    return apiRequest(`/api/payments/cancel/${paymentId}/`, {
+    return apiRequest(`/api/payments/cancel/${paymentId}`, {
       method: "POST",
     })
   },
 
   // Get available payment gateways
   getPaymentGateways: async () => {
-    return apiRequest(`/api/payments/gateways/`, { method: "GET" })
+    return apiRequest(`/api/payments/gateways`, { method: "GET" })
   },
 
   // Instructor payment history
   getInstructorPaymentHistory: async (params = {}) => {
     const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`/api/payments/instructor/history/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
+    return apiRequest(`/api/payments/instructor/history${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
   // Admin payment overview
   getAdminPaymentOverview: async () => {
-    return apiRequest(`/api/payments/admin/overview/`, { method: "GET" })
+    return apiRequest(`/api/payments/admin/overview`, { method: "GET" })
   },
 }
 
@@ -1062,6 +1058,10 @@ export const instructorAPI = {
 
   getExamStatistics: async () => {
     return apiRequest(`${INSTRUCTOR_API_BASE_URL}/exams/statistics/`, { method: "GET" })
+  },
+
+  getStudents: async () => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/students/`, { method: "GET" })
   },
 
   getExamPerformanceTrends: async (courseId, examId) => {
@@ -2077,149 +2077,156 @@ export const instructorAPI = {
   getExamPerformanceMetrics: async (courseId, examId) => {
     return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/exams/${examId}/performance-metrics/`, { method: "GET" })
   },
-}
 
-// --- SUPERADMIN API ENDPOINTS ---
-export const superadminAPI = {
-  // Platform Overview
-  getPlatformOverview: async () => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/overview/`, { method: "GET" })
+  // Instructor Dashboard & Analytics
+  getInstructorDashboard: async () => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/dashboard`, { method: "GET" })
   },
 
-  // Instructor Management
-  getAllInstructors: async (params = {}) => {
+  getCourseStatistics: async () => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/statistics`, { method: "GET" })
+  },
+
+  getPaymentAnalytics: async () => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/payments/analytics`, { method: "GET" })
+  },
+
+  getExamStatistics: async () => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/exams/statistics`, { method: "GET" })
+  },
+
+  getStudentAnalytics: async () => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/students/analytics`, { method: "GET" })
+  },
+
+  getRevenueOverview: async (params = {}) => {
     const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/instructors/${queryString ? `?${queryString}` : ""}`, {
-      method: "GET",
-    })
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/revenue/overview/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
-  manageInstructorStatus: async (instructorId, action, reason, restoreCourses = true) => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/instructors/${instructorId}/manage/`, {
-      method: "POST",
-      body: JSON.stringify({ action, reason, restore_courses: restoreCourses }),
-    })
+  getMonthlyEarnings: async (year, month) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/earnings/monthly/${year}/${month}`, { method: "GET" })
   },
 
-  previewCourseImpact: async (instructorId, action) => {
-    const queryString = new URLSearchParams({ action }).toString()
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/instructors/${instructorId}/course-impact/?${queryString}`, {
-      method: "GET",
-    })
-  },
-
-  bulkInstructorActions: async (action, instructorIds, reason, restoreCourses = true) => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/instructors/bulk-actions/`, {
-      method: "POST",
-      body: JSON.stringify({ action, instructor_ids: instructorIds, reason, restore_courses: restoreCourses }),
-    })
-  },
-
-  // Course Management
-  getPendingCourses: async (params = {}) => {
+  getPayoutHistory: async (params = {}) => {
     const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/courses/pending/${queryString ? `?${queryString}` : ""}`, {
-      method: "GET",
-    })
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/payouts/history/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
-  getAllCourses: async (params = {}) => {
+  // Course Performance Analytics
+  getCoursePerformance: async (courseId, params = {}) => {
     const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/courses/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/performance/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
-  getCompleteCourseDetails: async (courseId) => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/courses/${courseId}/complete/`, { method: "GET" })
+  getLessonAnalytics: async (courseId, lessonId) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/lessons/${lessonId}/analytics`, { method: "GET" })
   },
 
-  getCourseDetailForReview: async (courseId) => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/courses/${courseId}/`, { method: "GET" })
-  },
-
-  moderateCourse: async (courseId, action, reason) => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/courses/${courseId}/moderate/`, {
-      method: "POST",
-      body: JSON.stringify({ action, reason }),
-    })
-  },
-
-  bulkCourseActions: async (action, courseIds, reason) => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/courses/bulk-actions/`, {
-      method: "POST",
-      body: JSON.stringify({ action, course_ids: courseIds, reason }),
-    })
-  },
-
-  getCourseModerationStats: async () => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/courses/moderation-stats/`, { method: "GET" })
-  },
-
-  // Review Management
-  getPendingReviews: async (params = {}) => {
+  getStudentProgress: async (courseId, params = {}) => {
     const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/reviews/pending/${queryString ? `?${queryString}` : ""}`, {
-      method: "GET",
-    })
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/students/progress/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
-  moderateReview: async (reviewId, action, adminNotes) => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/reviews/${reviewId}/approve/`, {
-      method: "POST",
-      body: JSON.stringify({ action, admin_notes: adminNotes }),
-    })
-  },
-
-  getAllReviews: async (params = {}) => {
+  // Student Management
+  getEnrolledStudents: async (courseId, params = {}) => {
     const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/reviews/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/students/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
-  // Appeal Management
-  getPendingAppeals: async (params = {}) => {
-    const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/appeals/pending/${queryString ? `?${queryString}` : ""}`, {
-      method: "GET",
-    })
+  getStudentDetails: async (courseId, studentId) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/students/${studentId}`, { method: "GET" })
   },
 
-  reviewCourseAppeal: async (appealId, decision, reviewNotes) => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/appeals/${appealId}/review/`, {
+  sendStudentMessage: async (courseId, studentId, messageData) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/students/${studentId}/message`, {
       method: "POST",
-      body: JSON.stringify({ decision, review_notes: reviewNotes }),
+      body: JSON.stringify(messageData),
     })
   },
 
-  bulkCourseStatusUpdate: async (action, itemIds, reason) => {
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/courses/bulk-status-update/`, {
-      method: "POST",
-      body: JSON.stringify({ action, item_ids: itemIds, reason }),
-    })
-  },
-
-  // Analytics
-  getRevenueAnalytics: async (days = 30) => {
-    const queryString = new URLSearchParams({ days }).toString()
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/revenue-analytics/?${queryString}`, { method: "GET" })
-  },
-
-  // Hypothetical Superadmin Payment Endpoints (not explicitly in provided Superadmin API doc)
-  getPendingPayments: async (params = {}) => {
-    // This endpoint is hypothetical based on the request.
-    // In a real scenario, you'd confirm the actual API endpoint with the backend team.
+  // Course Reviews & Feedback
+  getCourseReviews: async (courseId, params = {}) => {
     const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/payments/pending/${queryString ? `?${queryString}` : ""}`, {
-      method: "GET",
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/reviews/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
+  },
+
+  respondToReview: async (courseId, reviewId, responseData) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/reviews/${reviewId}/respond`, {
+      method: "POST",
+      body: JSON.stringify(responseData),
     })
   },
 
-  approvePayment: async (paymentId) => {
-    // This endpoint is hypothetical.
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/payments/${paymentId}/approve/`, { method: "POST" })
+  // Exam Management
+  getExamResults: async (courseId, examId, params = {}) => {
+    const queryString = new URLSearchParams(params).toString()
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/exams/${examId}/results/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
-  rejectPayment: async (paymentId) => {
-    // This endpoint is hypothetical.
-    return apiRequest(`${SUPERADMIN_API_BASE_URL}/payments/${paymentId}/reject/`, { method: "POST" })
+  getExamAnalytics: async (courseId, examId) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/exams/${examId}/analytics`, { method: "GET" })
+  },
+
+  // Course Marketing & SEO
+  updateCourseSEO: async (courseId, seoData) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/seo`, {
+      method: "PUT",
+      body: JSON.stringify(seoData),
+    })
+  },
+
+  getCourseMarketingData: async (courseId) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/${courseId}/marketing`, { method: "GET" })
+  },
+
+  // Notifications & Communication
+  getNotifications: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString()
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/notifications/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
+  },
+
+  markNotificationRead: async (notificationId) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/notifications/${notificationId}/read`, {
+      method: "POST",
+    })
+  },
+
+  // Settings & Preferences
+  getInstructorSettings: async () => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/settings`, { method: "GET" })
+  },
+
+  updateInstructorSettings: async (settingsData) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/settings`, {
+      method: "PUT",
+      body: JSON.stringify(settingsData),
+    })
+  },
+
+  // Bank Account Management
+  getBankAccounts: async () => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/bank-accounts`, { method: "GET" })
+  },
+
+  addBankAccount: async (bankData) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/bank-accounts`, {
+      method: "POST",
+      body: JSON.stringify(bankData),
+    })
+  },
+
+  updateBankAccount: async (accountId, bankData) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/bank-accounts/${accountId}`, {
+      method: "PUT",
+      body: JSON.stringify(bankData),
+    })
+  },
+
+  deleteBankAccount: async (accountId) => {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/bank-accounts/${accountId}`, {
+      method: "DELETE",
+    })
   },
 }
 
@@ -2307,15 +2314,17 @@ export default {
   logoutAllDevices,
   refreshToken,
   verifyEmail,
-  resendEmailVerification,
+  resendVerification,
   forgotPassword,
   resetPassword,
   changePassword,
   getUserProfile,
+  updateUserProfile,
   updateProfile,
   uploadProfilePicture,
   deleteProfilePicture,
   getUserSessions,
+  deleteUserSession,
   requestAccountDeletion,
   cancelAccountDeletion,
   deleteAccountImmediate,
@@ -2327,9 +2336,6 @@ export default {
   generateBackupCodes,
   regenerateBackupCodes,
   emergency2FADisable,
-  // Platform Admin APIs
-  listEmergency2FADisableRequests,
-  approveEmergency2FADisable,
   // Student APIs
   listAllCourses,
   getCourseDetailsPublic,
@@ -2360,8 +2366,6 @@ export default {
   getUserDashboard,
   // Instructor APIs
   instructorAPI,
-  // Superadmin APIs
-  superadminAPI,
   // Payment APIs
   paymentAPI,
   // Chat/Messaging APIs

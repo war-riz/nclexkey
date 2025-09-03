@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
-import { PaymentForm } from "@/components/payment-form"
+import PaymentForm from "@/components/payment-form"
 
 export const metadata = {
   title: "Complete Payment",

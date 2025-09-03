@@ -39,9 +39,7 @@ export default function ClientLoginPage() {
         description: "Redirecting to dashboard...",
       })
       // Redirect based on user role from the login result
-      if (result.user?.role === "super_admin") {
-        router.push("/superadmin") // Superadmin dashboard
-      } else if (result.user?.role === "instructor" || result.user?.role === "admin") {
+      if (result.user?.role === "instructor" || result.user?.role === "admin") {
         router.push("/admin") // Instructor/Admin dashboard
       } else {
         // Default for student or other roles
@@ -95,6 +93,16 @@ export default function ClientLoginPage() {
             </div>
             <CardTitle className="text-2xl font-semibold tracking-tight">Sign In</CardTitle>
             <CardDescription className="text-muted-foreground">Access your NCLEX Prep account.</CardDescription>
+            
+            {/* Instructor Credentials Display */}
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <h3 className="text-sm font-semibold text-blue-800 mb-2">Instructor Login</h3>
+              <div className="text-xs text-blue-700 space-y-1">
+                <p><strong>Email:</strong> instructor@nclexprep.com</p>
+                <p><strong>Password:</strong> instructor123</p>
+              </div>
+              <p className="text-xs text-blue-600 mt-1">Use these credentials to access the instructor dashboard</p>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleLogin} className="space-y-4">
@@ -201,10 +209,25 @@ export default function ClientLoginPage() {
               </p>
             )}
             {rateLimitError && <RateLimitMessage error={rateLimitError} onRetry={handleRetry} />}
-            <p className="mt-6 text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h4 className="text-sm font-semibold text-blue-900 mb-2">For Instructors:</h4>
+              <p className="text-xs text-blue-700 mb-2">
+                Use your assigned instructor credentials to access the admin dashboard.
+              </p>
+              <div className="mt-3 p-3 bg-white rounded border border-blue-200">
+                <p className="text-xs text-blue-800 font-medium mb-1">Default Credentials:</p>
+                <p className="text-xs text-blue-700">Email: instructor@nclexprep.com</p>
+                <p className="text-xs text-blue-700">Password: instructor123</p>
+              </div>
+              <p className="text-xs text-blue-600 mt-2">
+                Contact the system administrator for new credentials or password reset.
+              </p>
+            </div>
+            
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              New student?{" "}
               <Link href="/register" className="text-primary hover:underline font-medium">
-                Register Now
+                Register
               </Link>
             </p>
             <p className="mt-2 text-center text-sm text-muted-foreground">

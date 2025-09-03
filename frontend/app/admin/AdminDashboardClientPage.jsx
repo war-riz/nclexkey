@@ -47,7 +47,7 @@ export default function AdminDashboardClientPage() {
     const fetchInstructorData = async () => {
       if (loadingAuth) return
 
-      if (user && user.role === "admin") {
+      if (user && (user.role === "instructor" || user.role === "admin")) {
         setIsInstructor(true)
         setLoadingData(true)
         try {
@@ -57,13 +57,15 @@ export default function AdminDashboardClientPage() {
             coursesResponse, 
             analyticsResponse,
             paymentAnalyticsResponse,
-            examStatsResponse
+            examStatsResponse,
+            studentsResponse
           ] = await Promise.all([
             instructorAPI.getInstructorDashboard(),
             instructorAPI.getCourses(),
             instructorAPI.getCourseStatistics(),
             instructorAPI.getPaymentAnalytics(),
-            instructorAPI.getExamStatistics()
+            instructorAPI.getExamStatistics(),
+            instructorAPI.getStudents()
           ])
 
           if (coursesResponse.success) {
@@ -94,7 +96,7 @@ export default function AdminDashboardClientPage() {
         } finally {
           setLoadingData(false)
         }
-      } else if (user && user.role !== "admin") {
+      } else if (user && user.role !== "instructor" && user.role !== "admin") {
         setIsInstructor(false)
         toast({
           title: "Access Denied",
@@ -179,7 +181,7 @@ export default function AdminDashboardClientPage() {
         }
 
         setCourses((prevCourses) => [response.data, ...prevCourses])
-        toast({ title: "Course Uploaded", description: "Course added successfully! Awaiting Superadmin approval." })
+        toast({ title: "Course Uploaded", description: "Course added successfully!" })
       } catch (error) {
         console.error("Add course API call failed:", error)
         toast({ title: "Error", description: `Failed to add course: ${error.message}`, variant: "destructive" })

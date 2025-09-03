@@ -9,10 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, User, Mail, Phone, UserCheck, Lock, Eye, EyeOff, GraduationCap, BookOpen, CreditCard, Bank, Smartphone } from "lucide-react"
+import { Loader2, User, Mail, Phone, Lock, Eye, EyeOff, GraduationCap, CreditCard } from "lucide-react"
 import RateLimitMessage from "@/components/RateLimitMessage"
 import PaystackPaymentForm from "@/components/paystack-payment-form"
 
@@ -21,7 +19,6 @@ export default function RegisterClientPage() {
     fullName: "",
     email: "",
     phoneNumber: "",
-    role: "student", // Default to student
     password: "",
     confirmPassword: "",
   })
@@ -29,7 +26,6 @@ export default function RegisterClientPage() {
   const [error, setError] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [showPayment, setShowPayment] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [paymentReference, setPaymentReference] = useState("")
   const router = useRouter()
@@ -71,32 +67,6 @@ export default function RegisterClientPage() {
       ...prev,
       [field]: value,
     }))
-    
-    // Show payment section when student role is selected
-    if (field === 'role' && value === 'student') {
-      setShowPayment(true)
-    } else if (field === 'role' && value !== 'student') {
-      setShowPayment(false)
-      setPaymentSuccess(false)
-      setPaymentReference("")
-    }
-    
-    // Validate role selection
-    if (field === 'role') {
-      if (value === 'instructor' || value === 'admin') {
-        toast({
-          title: "Instructor Registration",
-          description: "Instructor accounts require approval. You'll be notified once approved.",
-          variant: "default",
-        })
-      } else if (value === 'super_admin') {
-        toast({
-          title: "Super Admin Registration",
-          description: "Super admin accounts require special approval.",
-          variant: "default",
-        })
-      }
-    }
   }
 
   const handlePaymentSuccess = (reference) => {
@@ -134,17 +104,6 @@ export default function RegisterClientPage() {
       return
     }
 
-    if (!formData.role) {
-      setError({ message: "Please select a role." })
-      setLoading(false)
-      toast({
-        title: "Registration Failed",
-        description: "Please select a role.",
-        variant: "destructive",
-      })
-      return
-    }
-
     if (formData.password.length < 8) {
       setError({ message: "Password must be at least 8 characters long." })
       setLoading(false)
@@ -156,8 +115,8 @@ export default function RegisterClientPage() {
       return
     }
 
-    // For students, require payment before registration
-    if (formData.role === 'student' && !paymentSuccess) {
+    // Require payment before registration
+    if (!paymentSuccess) {
       setError({ message: "Please complete payment before registration." })
       setLoading(false)
       toast({
@@ -168,49 +127,53 @@ export default function RegisterClientPage() {
       return
     }
 
-    // Add payment reference to registration data for students
+    // Add payment reference to registration data
     const registrationData = {
       fullName: formData.fullName,
       email: formData.email,
       phoneNumber: formData.phoneNumber,
-      role: formData.role,
+      role: "student", // Always student
       password: formData.password,
       confirmPassword: formData.confirmPassword,
+      paymentReference: paymentReference
     }
 
-    // Add payment reference for students
-    if (formData.role === 'student' && paymentReference) {
-      registrationData.paymentReference = paymentReference
-    }
+    try {
+      const result = await register(registrationData)
 
-    const result = await register(registrationData)
-
-    if (result.success) {
-      toast({
-        title: "Registration Successful!",
-        description: formData.role === 'student' 
-          ? "Your account has been created and payment confirmed. Please check your email to verify your account."
-          : "Please check your email to verify your account.",
-        variant: "default",
-      })
-      router.push("/login")
-    } else {
-      if (result.error.isRateLimited) {
-        setError(result.error)
+      if (result.success) {
         toast({
-          title: "Rate Limit Exceeded",
-          description: "Too many registration attempts. Please try again later.",
-          variant: "destructive",
+          title: "Registration Successful!",
+          description: "Your account has been created and payment confirmed. Please check your email to verify your account.",
+          variant: "default",
         })
+        router.push("/login")
       } else {
-        setError(result.error)
-        toast({
-          title: "Registration Failed",
-          description: result.error.message || "Registration failed. Please try again.",
-          variant: "destructive",
-        })
+        if (result.error.isRateLimited) {
+          setError(result.error)
+          toast({
+            title: "Rate Limit Exceeded",
+            description: "Too many registration attempts. Please try again later.",
+            variant: "destructive",
+          })
+        } else {
+          setError(result.error)
+          toast({
+            title: "Registration Failed",
+            description: result.error.message || "Registration failed. Please try again.",
+            variant: "destructive",
+          })
+        }
       }
+    } catch (error) {
+      setError({ message: "An unexpected error occurred. Please try again." })
+      toast({
+        title: "Registration Failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
     }
+    
     setLoading(false)
   }
 
@@ -222,8 +185,9 @@ export default function RegisterClientPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-2xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-gray-900">
-            Create Your Account
+          <CardTitle className="text-2xl font-bold text-gray-900 flex items-center justify-center gap-2">
+            <GraduationCap className="h-8 w-8 text-blue-600" />
+            Student Registration
           </CardTitle>
           <CardDescription>
             Join NCLEX Keys and start your learning journey
@@ -276,35 +240,6 @@ export default function RegisterClientPage() {
                   placeholder="Enter your phone number"
                   required
                 />
-              </div>
-
-              <div>
-                <Label htmlFor="role" className="flex items-center gap-2">
-                  <UserCheck className="h-4 w-4" />
-                  I want to join as
-                </Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(value) => handleInputChange("role", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="student">
-                      <div className="flex items-center gap-2">
-                        <GraduationCap className="h-4 w-4" />
-                        Student - Learn NCLEX
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="instructor">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="h-4 w-4" />
-                        Instructor - Teach NCLEX
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               <div>
@@ -368,90 +303,78 @@ export default function RegisterClientPage() {
               </div>
             </div>
 
-            {/* Payment Section for Students */}
-            {showPayment && (
-              <div className="border rounded-lg p-4 bg-blue-50">
-                <div className="flex items-center gap-2 mb-4">
-                  <CreditCard className="h-5 w-5 text-blue-600" />
-                  <h3 className="font-semibold text-blue-900">Course Enrollment Payment</h3>
-                </div>
-                
-                {selectedCourse && (
-                  <div className="mb-4 p-3 bg-white rounded-lg border">
-                    <h4 className="font-semibold text-gray-800 mb-2">
-                      Selected Program: {selectedCourse.region} - {selectedCourse.category}
-                      {selectedCourse.subCategory && ` (${selectedCourse.subCategory.split("WITH ")[1]})`}
-                    </h4>
-                    <p className="text-lg font-bold text-blue-600">
-                      {getRegistrationCurrency() === 'NGN' ? '₦' : getRegistrationCurrency() === 'USD' ? '$' : '£'}
-                      {getRegistrationFee().toLocaleString()} {getRegistrationCurrency()} {selectedCourse.per}
-                    </p>
-                  </div>
-                )}
-                
-                {!paymentSuccess ? (
-                  <div>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Course enrollment requires a one-time payment of{' '}
-                      <strong>
-                        {getRegistrationCurrency() === 'NGN' ? '₦' : getRegistrationCurrency() === 'USD' ? '$' : '£'}
-                        {getRegistrationFee().toLocaleString()} {getRegistrationCurrency()}
-                      </strong>{' '}
-                      to access all course materials and features.
-                    </p>
-                    
-                                        <div className="space-y-4">
-                      <PaystackPaymentForm
-                        course={{
-                          id: selectedCourse?.id || 'student-registration',
-                          title: selectedCourse ? `${selectedCourse.region} - ${selectedCourse.category}` : 'Student Registration',
-                          price: getRegistrationFee()
-                        }}
-                        amount={getRegistrationFee()}
-                        currency={getRegistrationCurrency()}
-                        onSuccess={handlePaymentSuccess}
-                        onError={handlePaymentError}
-                        className="mb-4"
-                        paymentType="course_enrollment"
-                        userData={{
-                          email: formData.email,
-                          full_name: formData.fullName,
-                          phone_number: formData.phoneNumber
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <Alert className="border-green-200 bg-green-50">
-                    <AlertDescription className="text-green-800">
-                      ✅ Payment successful! Reference: {paymentReference}
-                    </AlertDescription>
-                  </Alert>
-                )}
+            {/* Payment Section */}
+            <div className="border rounded-lg p-4 bg-blue-50">
+              <div className="flex items-center gap-2 mb-4">
+                <CreditCard className="h-5 w-5 text-blue-600" />
+                <h3 className="font-semibold text-blue-900">Course Enrollment Payment</h3>
               </div>
-            )}
-
-            {/* Instructor Notice */}
-            {formData.role === 'instructor' && (
-              <Alert className="border-blue-200 bg-blue-50">
-                <AlertDescription className="text-blue-800">
-                  <strong>Instructor Registration:</strong> Your account will be reviewed by our team. 
-                  You'll receive an email once approved. No payment required.
-                </AlertDescription>
-              </Alert>
-            )}
+              
+              {selectedCourse && (
+                <div className="mb-4 p-3 bg-white rounded-lg border">
+                  <h4 className="font-semibold text-gray-800 mb-2">
+                    Selected Program: {selectedCourse.region} - {selectedCourse.category}
+                    {selectedCourse.subCategory && ` (${selectedCourse.subCategory.split("WITH ")[1]})`}
+                  </h4>
+                  <p className="text-lg font-bold text-blue-600">
+                    {getRegistrationCurrency() === 'NGN' ? '₦' : getRegistrationCurrency() === 'USD' ? '$' : '£'}
+                    {getRegistrationFee().toLocaleString()} {getRegistrationCurrency()} {selectedCourse.per}
+                  </p>
+                </div>
+              )}
+              
+              {!paymentSuccess ? (
+                <div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Course enrollment requires a one-time payment of{' '}
+                    <strong>
+                      {getRegistrationCurrency() === 'NGN' ? '₦' : getRegistrationCurrency() === 'USD' ? '$' : '£'}
+                      {getRegistrationFee().toLocaleString()} {getRegistrationCurrency()}
+                    </strong>{' '}
+                    to access all course materials and features.
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <PaystackPaymentForm
+                      course={{
+                        id: selectedCourse?.id || 'student-registration',
+                        title: selectedCourse ? `${selectedCourse.region} - ${selectedCourse.category}` : 'Student Registration',
+                        price: getRegistrationFee()
+                      }}
+                      amount={getRegistrationFee()}
+                      currency={getRegistrationCurrency()}
+                      onSuccess={handlePaymentSuccess}
+                      onError={handlePaymentError}
+                      className="mb-4"
+                      paymentType="course_enrollment"
+                      userData={{
+                        email: formData.email,
+                        full_name: formData.fullName,
+                        phone_number: formData.phoneNumber
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <Alert className="border-green-200 bg-green-50">
+                  <AlertDescription className="text-green-800">
+                    ✅ Payment successful! Reference: {paymentReference}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
 
             {error && <RateLimitMessage error={error} />}
 
             <Button
               type="submit"
               className="w-full"
-              disabled={loading || (formData.role === 'student' && !paymentSuccess)}
+              disabled={loading || !paymentSuccess}
             >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {formData.role === 'student' ? 'Processing Payment...' : 'Creating Account...'}
+                  Processing Payment...
                 </>
               ) : (
                 'Create Account'

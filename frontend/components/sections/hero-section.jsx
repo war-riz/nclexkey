@@ -57,14 +57,14 @@ export function HeroSection() {
           </h1>
           <p className="text-lg md:text-xl text-gray-700 animate-slide-in-up delay-100">
             Join thousands of nursing students who have successfully passed their NCLEX exam with our comprehensive
-            virtual tutoring program.
+            virtual tutoring program. <strong>Student registration only - payment required.</strong>
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4 animate-slide-in-up delay-200">
             <Button
               asChild
               className="bg-[#4F46E5] text-white px-8 py-3 text-lg rounded-md hover:bg-[#3b34b0] transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 animate-pulse"
             >
-              <Link href="/register">Start Learning Today</Link>
+              <Link href="/register">Register</Link>
             </Button>
             <Button
               variant="ghost"

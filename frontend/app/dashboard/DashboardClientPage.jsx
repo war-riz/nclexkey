@@ -76,81 +76,37 @@ export default function DashboardClientPage() {
 
       // Redirect based on user role
       if (user) {
-        if (user.role === "super_admin") {
-          router.push("/superadmin")
-          return
-        } else if (user.role === "instructor" || user.role === "admin") {
+        if (user.role === "instructor") {
           router.push("/admin")
           return
         }
       }
 
-      if (user && (user.role === "student" || !user.role)) {
+      if (user && user.role === "student") {
         setLoadingData(true)
         try {
-          // Fetch comprehensive dashboard data using the proper API endpoints
+          // Fetch basic dashboard data
           const [
-            dashboardResponse,
             coursesResponse,
-            progressResponse,
-            recommendationsResponse,
-            paymentHistoryResponse,
-            unreadMessagesResponse
+            progressResponse
           ] = await Promise.all([
-            getUserDashboard(),
             getMyCourses(),
-            getMyOverallProgress(),
-            getCourseRecommendations(),
-            paymentAPI.getPaymentHistory(),
-            chatAPI.getUnreadCount()
+            getMyOverallProgress()
           ])
-
-          // Build comprehensive dashboard data
-          const dashboardData = {
-            user_info: {
-              name: user.full_name || user.email,
-              email: user.email,
-              joined_date: user.date_joined,
-              role: user.role || "student"
-            },
-            statistics: {
-              total_courses: coursesResponse.success ? coursesResponse.data?.length || 0 : 0,
-              completed_courses: progressResponse.success ? 
-                progressResponse.data?.courses?.filter(c => c.progress_percentage === 100).length || 0 : 0,
-              in_progress_courses: progressResponse.success ? 
-                progressResponse.data?.courses?.filter(c => c.progress_percentage > 0 && c.progress_percentage < 100).length || 0 : 0,
-              completion_rate: progressResponse.success ? progressResponse.data?.overall_completion_rate || 0 : 0,
-              total_spent: paymentHistoryResponse.success ? 
-                paymentHistoryResponse.data?.total_spent || 0 : 0,
-              certificates_earned: progressResponse.success ? 
-                progressResponse.data?.certificates_earned || 0 : 0,
-              study_hours: progressResponse.success ? 
-                progressResponse.data?.total_study_hours || 0 : 0,
-              average_score: progressResponse.success ? 
-                progressResponse.data?.average_score || 0 : 0
-            },
-            recent_activity: {
-              course_progress: progressResponse.success ? 
-                progressResponse.data?.recent_activity?.course_progress || [] : [],
-              enrollments: progressResponse.success ? 
-                progressResponse.data?.recent_activity?.enrollments || [] : [],
-              exam_attempts: progressResponse.success ? 
-                progressResponse.data?.recent_activity?.exam_attempts || [] : []
-            },
-            certificates: progressResponse.success ? 
-              progressResponse.data?.certificates || [] : [],
-            recommended_courses: recommendationsResponse.success ? 
-              recommendationsResponse.data?.recommended_courses || [] : [],
-            upcoming_deadlines: progressResponse.success ? 
-              progressResponse.data?.upcoming_deadlines || [] : [],
-            notifications: {
-              unread_messages: unreadMessagesResponse.success ? 
-                unreadMessagesResponse.data?.unread_count || 0 : 0,
-              system_notifications: []
-            }
+          
+          if (coursesResponse.success) {
+            setDashboardData(prev => ({
+              ...prev,
+              courses: coursesResponse.data || []
+            }))
           }
 
-          setDashboardData(dashboardData)
+          if (progressResponse.success) {
+            setDashboardData(prev => ({
+              ...prev,
+              progress: progressResponse.data || {}
+            }))
+          }
 
         } catch (error) {
           console.error("Failed to fetch dashboard data:", error)
@@ -162,13 +118,6 @@ export default function DashboardClientPage() {
         } finally {
           setLoadingData(false)
         }
-      } else if (!user && !loadingAuth) {
-        toast({
-          title: "Authentication Required",
-          description: "Please log in to access your dashboard.",
-          variant: "destructive",
-        })
-        router.push("/login")
       }
     }
 
