@@ -22,6 +22,10 @@ async function handleResponse(response) {
     } else {
       data = await response.text()
     }
+    
+    console.log("Response data:", data)
+    console.log("Response status:", response.status)
+    
   } catch (error) {
     console.error("Error parsing response:", error)
     // Return a safe default response
