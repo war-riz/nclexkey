@@ -25,11 +25,26 @@ export default function AdminDashboardClientPage() {
   const router = useRouter()
   const [isInstructor, setIsInstructor] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
+  
+  // Messaging state
+  const [messages, setMessages] = useState([])
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [selectedMessage, setSelectedMessage] = useState(null)
+  const [isComposing, setIsComposing] = useState(false)
+  const [composeForm, setComposeForm] = useState({
+    subject: '',
+    content: '',
+    messageType: 'admin',
+    priority: 'normal',
+    recipientEmails: []
+  })
 
   // Course management state
   const [courseTitle, setCourseTitle] = useState("")
   const [courseDescription, setCourseDescription] = useState("")
   const [videoUrl, setVideoUrl] = useState("")
+  const [videoUrlError, setVideoUrlError] = useState("")
   const [editingCourseId, setEditingCourseId] = useState(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const [isUploadingFile, setIsUploadingFile] = useState(false)
@@ -50,6 +65,7 @@ export default function AdminDashboardClientPage() {
       if (loadingAuth) return
 
       if (user && (user.role === "instructor" || user.role === "admin")) {
+        console.log("User authenticated as instructor:", user)
         setIsInstructor(true)
         setLoadingData(true)
         try {
@@ -60,15 +76,25 @@ export default function AdminDashboardClientPage() {
             analyticsResponse,
             paymentAnalyticsResponse,
             examStatsResponse,
-            studentsResponse
+            studentsResponse,
+            messagesResponse,
+            notificationsResponse
           ] = await Promise.all([
             instructorAPI.getInstructorDashboard(),
             instructorAPI.getCourses(),
             instructorAPI.getCourseStatistics(),
             instructorAPI.getPaymentAnalytics(),
             instructorAPI.getExamStatistics(),
-            instructorAPI.getStudents()
+            instructorAPI.getStudents(),
+            apiRequest('/api/messaging/messages/'),
+            apiRequest('/api/messaging/notifications/')
           ])
+
+          console.log("All API responses received:")
+          console.log("Dashboard:", dashboardResponse)
+          console.log("Courses:", coursesResponse)
+          console.log("Students:", studentsResponse)
+          console.log("Analytics:", analyticsResponse)
 
           // Handle each response safely
           if (dashboardResponse && dashboardResponse.success) {
@@ -86,15 +112,33 @@ export default function AdminDashboardClientPage() {
           }
 
           if (studentsResponse.success) {
-            setStudents(studentsResponse.data || [])
+            console.log("Students fetched successfully:", studentsResponse.data)
+            console.log("Students array:", studentsResponse.data?.students)
+            console.log("Total students:", studentsResponse.data?.total_students)
+            setStudents(studentsResponse.data?.students || [])
           } else {
             console.warn("Failed to fetch students:", studentsResponse.error)
+            console.log("Full students response:", studentsResponse)
+            setStudents([]) // Set empty array on failure
           }
 
           if (analyticsResponse.success) {
             setAnalytics(analyticsResponse.data || {})
           } else {
             console.warn("Failed to fetch analytics:", analyticsResponse.error)
+          }
+
+          if (messagesResponse.success) {
+            setMessages(messagesResponse.data?.messages || [])
+            setUnreadCount(messagesResponse.data?.unread_count || 0)
+          } else {
+            console.warn("Failed to fetch messages:", messagesResponse.error)
+          }
+
+          if (notificationsResponse.success) {
+            setNotifications(notificationsResponse.data?.notifications || [])
+          } else {
+            console.warn("Failed to fetch notifications:", notificationsResponse.error)
           }
 
         } catch (error) {
@@ -138,8 +182,31 @@ export default function AdminDashboardClientPage() {
     setCourseTitle("")
     setCourseDescription("")
     setVideoUrl("")
+    setVideoUrlError("")
     setEditingCourseId(null)
     setSelectedFile(null)
+  }
+
+  const validateVideoUrl = (url) => {
+    if (!url) {
+      setVideoUrlError("")
+      return true
+    }
+    
+    try {
+      const urlObj = new URL(url)
+      // Allow any valid URL - no domain restrictions
+      if (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') {
+        setVideoUrlError("")
+        return true
+      } else {
+        setVideoUrlError("Please enter a valid HTTP or HTTPS URL")
+        return false
+      }
+    } catch (error) {
+      setVideoUrlError("Please enter a valid URL")
+      return false
+    }
   }
 
   const refreshCourses = async () => {
@@ -148,7 +215,11 @@ export default function AdminDashboardClientPage() {
       const response = await instructorAPI.getCourses()
       if (response.success) {
         console.log("Courses refreshed:", response.data)
-        setCourses(response.data || [])
+        // The response.data contains {courses: [...], pagination: {...}, filters: {...}}
+        // We need to extract the courses array
+        const coursesArray = response.data?.courses || response.data || []
+        console.log("Setting courses to:", coursesArray)
+        setCourses(coursesArray)
       } else {
         console.warn("Failed to refresh courses:", response.error)
       }
@@ -163,6 +234,18 @@ export default function AdminDashboardClientPage() {
     if (!courseTitle || !courseDescription || (!videoUrl && !selectedFile)) {
       toast({ title: "Validation Error", description: "Please fill all required fields.", variant: "destructive" })
       return
+    }
+
+    // Validate video URL if provided
+    if (videoUrl && !selectedFile) {
+      if (videoUrlError) {
+        toast({ 
+          title: "Invalid URL", 
+          description: videoUrlError, 
+          variant: "destructive" 
+        })
+        return
+      }
     }
 
     if (editingCourseId) {
@@ -214,7 +297,7 @@ export default function AdminDashboardClientPage() {
         formData.append("currency", "NGN")
         formData.append("duration_minutes", "60")
         formData.append("difficulty_level", "beginner")
-        formData.append("is_active", "false")
+        formData.append("is_active", "true")  // Make courses immediately visible to students
         formData.append("is_featured", "false")
         formData.append("category", "all")  // Default category
         
@@ -222,20 +305,78 @@ export default function AdminDashboardClientPage() {
         formData.append("has_discount", "false")
         formData.append("discount_percentage", "0")
         formData.append("estimated_duration_hours", "1.0")
-        formData.append("requirements", "[]")  // Empty array
-        formData.append("what_you_will_learn", "[]")  // Empty array
+        formData.append("requirements", JSON.stringify([]))  // Proper JSON array
+        formData.append("what_you_will_learn", JSON.stringify([]))  // Proper JSON array
+        // formData.append("prerequisites", "[]")  // ManyToManyField expects list of IDs, not JSON string
+        // Don't send these fields if they're empty to avoid validation errors
+        // formData.append("thumbnail", "")  // CloudinaryField expects file or public_id
+        // formData.append("video_file", "")  // FileField expects file object
+        // formData.append("discount_start_date", "")  // DateTimeField expects valid date
+        // formData.append("discount_end_date", "")  // DateTimeField expects valid date
+
+        // Debug: Log what we're sending
+        console.log("=== FRONTEND DEBUG ===")
+        console.log("FormData contents:")
+        for (let [key, value] of formData.entries()) {
+          console.log(`${key}: ${value}`)
+        }
 
         const response = await apiRequest("/api/admin/courses/create/", {
           method: "POST",
           body: formData,
         })
         
+        console.log("=== COURSE CREATION RESPONSE ===")
+        console.log("Full response:", response)
+        console.log("Response success:", response.success)
+        console.log("Response data:", response.data)
+        console.log("Response error:", response.error)
+        console.log("Response status:", response.status)
+        
         if (!response.success) {
-          throw new Error(response.error.message || "Failed to add course.")
+          console.log("=== ERROR RESPONSE DEBUG ===")
+          console.log("Full response:", response)
+          console.log("Response type:", typeof response)
+          console.log("Response keys:", Object.keys(response))
+          console.log("Error details:", response.error)
+          console.log("Error type:", typeof response.error)
+          if (response.error) {
+            console.log("Error keys:", Object.keys(response.error))
+          }
+          
+          // Show specific validation errors if available
+          if (response.error?.errors) {
+            console.log("=== VALIDATION ERRORS DETAILS ===")
+            console.log("Raw errors object:", response.error.errors)
+            console.log("Error keys:", Object.keys(response.error.errors))
+            
+            const errorMessages = Object.entries(response.error.errors)
+              .map(([field, errors]) => {
+                console.log(`Field: ${field}, Errors:`, errors)
+                // Handle both string arrays and ErrorDetail objects
+                const errorTexts = errors.map(error => 
+                  typeof error === 'string' ? error : error.toString()
+                )
+                return `${field}: ${errorTexts.join(', ')}`
+              })
+              .join('\n')
+            throw new Error(`Validation errors:\n${errorMessages}`)
+          }
+          
+          // Try to get the most specific error message
+          let errorMsg = "Failed to add course."
+          if (response.error?.detail) {
+            errorMsg = response.error.detail
+          } else if (response.error?.message) {
+            errorMsg = response.error.message
+          }
+          throw new Error(errorMsg)
         }
 
         // Refresh courses to get updated data
+        console.log("=== REFRESHING COURSES ===")
         await refreshCourses()
+        console.log("=== COURSES REFRESHED ===")
         toast({ title: "Course Uploaded", description: "Course added successfully!" })
       } catch (error) {
         console.error("Add course API call failed:", error)
@@ -318,10 +459,14 @@ export default function AdminDashboardClientPage() {
     )
   }
 
-  const totalStudents = students.length
-  const totalCourses = courses.length
-  const activeCourses = courses.filter(c => c.is_active).length
-  const pendingCourses = courses.filter(c => !c.is_active).length
+  // Ensure courses and students are arrays before using array methods
+  const coursesArray = Array.isArray(courses) ? courses : []
+  const studentsArray = Array.isArray(students) ? students : []
+  
+  const totalStudents = studentsArray.length
+  const totalCourses = coursesArray.length
+  const activeCourses = coursesArray.filter(c => c.is_active).length
+  const pendingCourses = coursesArray.filter(c => !c.is_active).length
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -380,10 +525,23 @@ export default function AdminDashboardClientPage() {
           </Button>
           <Button
             variant="ghost"
+            className={`rounded-none border-b-2 ${activeTab === "messaging" ? "border-indigo-600 text-indigo-600" : "border-transparent text-gray-600 hover:text-gray-800"}`}
+            onClick={() => setActiveTab("messaging")}
+          >
+            <MessageSquare className="h-5 w-5 mr-2" /> 
+            Messaging
+            {unreadCount > 0 && (
+              <Badge variant="destructive" className="ml-2 text-xs">
+                {unreadCount}
+              </Badge>
+            )}
+          </Button>
+          <Button
+            variant="ghost"
             className={`rounded-none border-b-2 ${activeTab === "settings" ? "border-indigo-600 text-indigo-600" : "border-transparent text-gray-600 hover:text-gray-800"}`}
             onClick={() => setActiveTab("settings")}
           >
-            <Settings className="h-5 w-5 mr-2" /> Settings
+            <Settings className="h-5 w-2 mr-2" /> Settings
           </Button>
         </div>
 
@@ -503,9 +661,9 @@ export default function AdminDashboardClientPage() {
                     <CardTitle className="text-xl font-semibold">Recent Course Activity</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {courses.length > 0 ? (
+                    {coursesArray.length > 0 ? (
                       <div className="space-y-4">
-                        {courses.slice(0, 5).map((course) => (
+                        {coursesArray.slice(0, 5).map((course) => (
                           <div key={course.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div className="flex items-center gap-3">
                               <BookOpen className="h-5 w-5 text-indigo-600" />
@@ -594,21 +752,27 @@ export default function AdminDashboardClientPage() {
                          disabled={isAddingCourse || isUpdatingCourse || isUploadingFile}
                        />
                        {selectedFile && <p className="text-sm text-gray-500 mt-1">Selected: {selectedFile.name}</p>}
-                       <p className="text-sm text-gray-500 mt-1">OR provide Telegram group link:</p>
+                       <p className="text-sm text-gray-500 mt-1">OR provide video URL:</p>
                        <Input
                          id="videoUrl"
                          type="url"
-                         placeholder="https://t.me/your_organization_group"
+                         placeholder="https://example.com/video.mp4 or https://youtube.com/watch?v=..."
                          value={videoUrl}
                          onChange={(e) => {
                            setVideoUrl(e.target.value)
                            setSelectedFile(null)
+                           validateVideoUrl(e.target.value)
                          }}
                          disabled={isAddingCourse || isUpdatingCourse || isUploadingFile}
+                         className={videoUrlError ? "border-red-500" : ""}
                        />
+                       {videoUrlError && (
+                         <p className="text-xs text-red-500 mt-1">{videoUrlError}</p>
+                       )}
                        <p className="text-xs text-gray-400 mt-1">
                          • Upload video file for Cloudinary storage
-                         • OR provide Telegram group link for course access
+                         • OR provide any video URL (YouTube, Vimeo, direct video links, etc.)
+                         • Supported formats: MP4, MOV, AVI, WebM, and any HTTP/HTTPS video URL
                        </p>
                      </div>
                     <Button
@@ -714,8 +878,8 @@ export default function AdminDashboardClientPage() {
                        </TableRow>
                      </TableHeader>
                     <TableBody>
-                      {courses.length > 0 ? (
-                        courses.map((course) => (
+                      {coursesArray.length > 0 ? (
+                        coursesArray.map((course) => (
                           <TableRow key={course.id}>
                             <TableCell className="font-medium">{course.title}</TableCell>
                             <TableCell className="text-sm text-gray-600 max-w-xs truncate">
@@ -780,16 +944,16 @@ export default function AdminDashboardClientPage() {
         {activeTab === "students" && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-800">My Students</h2>
+              <h2 className="text-2xl font-bold text-gray-800">Platform Students</h2>
               <Badge variant="outline" className="text-sm">
-                {totalStudents} Students
+                {totalStudents} Students with Full Access
               </Badge>
             </div>
 
             <Card className="bg-white shadow-md">
               <CardHeader>
                 <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                  <Users className="h-6 w-6 text-indigo-600" /> Student Progress Overview
+                  <Users className="h-6 w-6 text-indigo-600" /> Student Platform Access Overview
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -798,29 +962,29 @@ export default function AdminDashboardClientPage() {
                       <TableRow>
                       <TableHead>Student Name</TableHead>
                         <TableHead>Email</TableHead>
-                        <TableHead>Role</TableHead>
-                      <TableHead>Courses Enrolled</TableHead>
-                      <TableHead>Completion Rate</TableHead>
+                        <TableHead>Joined Date</TableHead>
+                      <TableHead>Courses Available</TableHead>
+                      <TableHead>Courses Accessed</TableHead>
+                      <TableHead>Overall Progress</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {students.length > 0 ? (
-                      students.map((student) => (
+                    {studentsArray.length > 0 ? (
+                      studentsArray.map((student) => (
                         <TableRow key={student.id}>
                           <TableCell className="font-medium">{student.full_name || "N/A"}</TableCell>
                           <TableCell>{student.email}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{student.role}</Badge>
-                          </TableCell>
-                          <TableCell>{student.courses_enrolled_count || 0}</TableCell>
+                          <TableCell>{new Date(student.date_joined).toLocaleDateString()}</TableCell>
+                          <TableCell>{student.total_courses_available || 0}</TableCell>
+                          <TableCell>{student.courses_accessed || 0}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Progress 
-                                value={student.completion_rate || 0} 
+                                value={student.overall_progress || 0} 
                                 className="w-16 h-2" 
                               />
-                              <span className="text-sm">{student.completion_rate || 0}%</span>
+                              <span className="text-sm">{student.overall_progress || 0}%</span>
                             </div>
                           </TableCell>
                             <TableCell className="text-right">
@@ -832,9 +996,18 @@ export default function AdminDashboardClientPage() {
                         ))
                       ) : (
                         <TableRow>
-                        <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                        <TableCell colSpan={7} className="text-center text-gray-500 py-8">
                           <Users className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                          <p>No students found.</p>
+                          <p className="text-lg font-medium mb-2">No students found</p>
+                          <p className="text-sm text-gray-400 mb-4">
+                            Students will appear here once they complete registration and payment
+                          </p>
+                          <div className="text-xs text-gray-400 space-y-1">
+                            <p>Debug Info:</p>
+                            <p>Students state: {students ? 'Loaded' : 'Not loaded'}</p>
+                            <p>Students count: {students?.length || 0}</p>
+                            <p>Students array: {Array.isArray(students) ? 'Valid array' : 'Not an array'}</p>
+                          </div>
                           </TableCell>
                         </TableRow>
                       )}
@@ -1045,6 +1218,145 @@ export default function AdminDashboardClientPage() {
                     ))
                   ) : (
                     <p className="text-gray-600 text-center py-4">No recent activity to display.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Messaging Tab */}
+        {activeTab === "messaging" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-800">Messaging Center</h2>
+              <Button 
+                onClick={() => setIsComposing(true)}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                <Plus className="h-4 w-4 mr-2" /> Compose Message
+              </Button>
+            </div>
+
+            {/* Message Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="bg-white shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Total Messages</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-indigo-600">{messages.length}</p>
+                    <p className="text-sm text-gray-600">Messages sent/received</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Unread Messages</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-red-600">{unreadCount}</p>
+                    <p className="text-sm text-gray-600">Require attention</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">Notifications</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-purple-600">{notifications.length}</p>
+                    <p className="text-sm text-gray-600">System notifications</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Messages List */}
+            <Card className="bg-white shadow-md">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">Recent Messages</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {messages.length > 0 ? (
+                    messages.slice(0, 10).map((message) => (
+                      <div 
+                        key={message.id} 
+                        className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                          message.is_read ? 'bg-gray-50' : 'bg-blue-50 border-l-4 border-blue-500'
+                        }`}
+                        onClick={() => setSelectedMessage(message)}
+                      >
+                        <div className="flex-shrink-0">
+                          <MessageSquare className={`h-5 w-5 ${
+                            message.priority === 'urgent' ? 'text-red-600' :
+                            message.priority === 'high' ? 'text-orange-600' :
+                            message.priority === 'normal' ? 'text-blue-600' : 'text-gray-600'
+                          }`} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium text-gray-900">{message.subject}</p>
+                            <Badge variant={message.is_read ? "secondary" : "default"}>
+                              {message.is_read ? 'Read' : 'Unread'}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            From: {message.sender?.full_name || message.sender?.email || 'Unknown'}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {new Date(message.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-600 text-center py-4">No messages to display.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Notifications */}
+            <Card className="bg-white shadow-md">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">System Notifications</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {notifications.length > 0 ? (
+                    notifications.slice(0, 10).map((notification) => (
+                      <div 
+                        key={notification.id} 
+                        className={`flex items-center gap-3 p-3 rounded-lg ${
+                          notification.is_read ? 'bg-gray-50' : 'bg-yellow-50 border-l-4 border-yellow-500'
+                        }`}
+                      >
+                        <div className="flex-shrink-0">
+                          <AlertCircle className="h-5 w-5 text-yellow-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium text-gray-900">{notification.title}</p>
+                            <Badge variant={notification.is_read ? "secondary" : "default"}>
+                              {notification.is_read ? 'Read' : 'New'}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-600">{notification.message}</p>
+                          <p className="text-sm text-gray-500">
+                            {new Date(notification.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-600 text-center py-4">No notifications to display.</p>
                   )}
                 </div>
               </CardContent>

@@ -52,6 +52,7 @@ import {
   getMyOverallProgress,
   getCourseRecommendations,
   getUserDashboard,
+  getStudentAnalytics,
   getCourseReviews,
   getCourseExams,
   getCourseContentStructure,
@@ -82,31 +83,22 @@ export default function DashboardClientPage() {
         }
       }
 
-      if (user && user.role === "student") {
-        setLoadingData(true)
-        try {
-          // Fetch basic dashboard data
-          const [
-            coursesResponse,
-            progressResponse
-          ] = await Promise.all([
-            getMyCourses(),
-            getMyOverallProgress()
-          ])
-          
-          if (coursesResponse.success) {
-            setDashboardData(prev => ({
-              ...prev,
-              courses: coursesResponse.data || []
-            }))
-          }
-
-          if (progressResponse.success) {
-            setDashboardData(prev => ({
-              ...prev,
-              progress: progressResponse.data || {}
-            }))
-          }
+              if (user && user.role === "student") {
+          setLoadingData(true)
+          try {
+            // Fetch comprehensive dashboard data using the new unified endpoint
+            const dashboardResponse = await getUserDashboard()
+            
+            if (dashboardResponse.success) {
+              setDashboardData(dashboardResponse.data)
+            } else {
+              console.error('Failed to fetch dashboard data:', dashboardResponse.error)
+              toast({
+                title: "Error",
+                description: "Failed to load dashboard data. Please try again.",
+                variant: "destructive",
+              })
+            }
 
         } catch (error) {
           console.error("Failed to fetch dashboard data:", error)
@@ -135,10 +127,10 @@ export default function DashboardClientPage() {
       
       switch (action) {
         case "continue":
-          router.push(`/courses/${courseId}`)
+          router.push(`/courses/${courseId}/view`)
           return
         case "view":
-          router.push(`/courses/${courseId}`)
+          router.push(`/courses/${courseId}/view`)
           return
         case "download":
           // Handle certificate download
@@ -296,8 +288,8 @@ export default function DashboardClientPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Total Courses</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.total_courses || 0}</p>
+                      <p className="text-sm font-medium text-gray-600">Available Courses</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats.total_courses_available || 0}</p>
                     </div>
                     <BookOpen className="h-8 w-8 text-indigo-600" />
                   </div>
@@ -320,10 +312,10 @@ export default function DashboardClientPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Study Hours</p>
-                      <p className="text-2xl font-bold text-orange-600">{stats.study_hours || 0}h</p>
+                      <p className="text-sm font-medium text-gray-600">In Progress</p>
+                      <p className="text-2xl font-bold text-orange-600">{stats.in_progress_courses || 0}</p>
                     </div>
-                    <Clock className="h-8 w-8 text-orange-600" />
+                    <TrendingUp className="h-8 w-8 text-orange-600" />
                   </div>
                 </CardContent>
               </Card>
@@ -332,14 +324,43 @@ export default function DashboardClientPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Avg Score</p>
-                      <p className="text-2xl font-bold text-purple-600">{stats.average_score || 0}%</p>
+                      <p className="text-sm font-medium text-gray-600">Certificates</p>
+                      <p className="text-2xl font-bold text-purple-600">{stats.certificates_earned || 0}</p>
                     </div>
-                    <BarChart3 className="h-8 w-8 text-purple-600" />
+                    <Award className="h-8 w-8 text-purple-600" />
                   </div>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Platform Access Information */}
+            <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex-shrink-0">
+                    <CheckCircle className="h-12 w-12 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-green-800 mb-2">
+                      Full Platform Access
+                    </h3>
+                    <p className="text-green-700 mb-3">
+                      You have complete access to all courses on this platform. Your registration payment has been confirmed.
+                    </p>
+                    <div className="flex items-center gap-6 text-sm text-green-600">
+                      <span className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        Payment Status: Completed
+                      </span>
+                      <span className="flex items-center gap-2">
+                        <Globe className="h-4 w-4" />
+                        Access Level: Full Platform
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -356,7 +377,7 @@ export default function DashboardClientPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-gray-700">Course Completion</span>
                         <span className="font-semibold text-indigo-600">
-                          {stats.completed_courses || 0}/{stats.total_courses || 0}
+                          {stats.completed_courses || 0}/{stats.total_courses_available || 0}
                         </span>
                       </div>
                       <Progress value={stats.completion_rate || 0} className="h-3" />
@@ -459,14 +480,22 @@ export default function DashboardClientPage() {
                       <Target className="h-4 w-4 mr-2" /> View Progress
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" className="w-full justify-start">
+                  <Button asChild variant="outline" className="w-full justify-start hover:bg-blue-50 hover:border-blue-200">
                     <Link href="/dashboard/messages">
-                      <MessageSquare className="h-4 w-4 mr-2" /> Messages
+                      <MessageSquare className="h-4 w-4 mr-2 text-blue-600" /> 
+                      <div className="flex flex-col items-start">
+                        <span>Messages</span>
+                        <span className="text-xs text-blue-600 font-normal">Chat with instructors</span>
+                      </div>
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" className="w-full justify-start">
+                  <Button asChild variant="outline" className="w-full justify-start hover:bg-green-50 hover:border-green-200">
                     <Link href="/dashboard/exam">
-                      <ClipboardCheck className="h-4 w-4 mr-2" /> Take Exam
+                      <ClipboardCheck className="h-4 w-4 mr-2 text-green-600" /> 
+                      <div className="flex flex-col items-start">
+                        <span>Take Exam</span>
+                        <span className="text-xs text-green-600 font-normal">NCLEX practice tests</span>
+                      </div>
                     </Link>
                   </Button>
                   <Button 
@@ -474,7 +503,11 @@ export default function DashboardClientPage() {
                     className="w-full justify-start bg-blue-50 border-blue-200 hover:bg-blue-100"
                     onClick={() => window.open('https://candidate.speedexam.net/openquiz.aspx?quiz=68A6BFA31A094327AA1ABD93DD8250DF', '_blank')}
                   >
-                    <Globe className="h-4 w-4 mr-2 text-blue-600" /> Visit External Resource
+                    <Globe className="h-4 w-4 mr-2 text-blue-600" /> 
+                    <div className="flex flex-col items-start">
+                      <span>SpeedExam Practice</span>
+                      <span className="text-xs text-blue-600 font-normal">Direct access to practice tests</span>
+                    </div>
                   </Button>
                 </CardContent>
               </Card>
@@ -530,7 +563,7 @@ export default function DashboardClientPage() {
           {/* Courses Tab */}
           <TabsContent value="courses" className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-800">My Courses</h2>
+              <h2 className="text-2xl font-bold text-gray-800">All Available Courses</h2>
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -557,38 +590,42 @@ export default function DashboardClientPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Course Cards */}
-              {recentActivity.course_progress && recentActivity.course_progress.map((course, index) => (
+              {dashboardData?.available_courses && dashboardData.available_courses.length > 0 ? (
+                dashboardData.available_courses.map((course, index) => (
                 <Card key={index} className="bg-white shadow-md hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg font-semibold">{course.course_title}</CardTitle>
+                        <CardTitle className="text-lg font-semibold">{course.title}</CardTitle>
                         <CardDescription className="mt-1">
-                          Progress: {course.progress_percentage}%
+                          {course.description?.substring(0, 100)}...
                         </CardDescription>
                       </div>
-                      <Badge 
-                        variant={course.progress_percentage === 100 ? "default" : 
-                                course.progress_percentage > 0 ? "secondary" : "outline"}
-                      >
-                        {course.progress_percentage === 100 ? "Completed" : 
-                         course.progress_percentage > 0 ? "In Progress" : "Not Started"}
-                      </Badge>
+                      <div className="flex flex-col gap-2">
+                        <Badge 
+                          variant={course.is_active ? "default" : "secondary"}
+                        >
+                          {course.is_active ? "Active" : "Pending"}
+                        </Badge>
+                        <Badge variant="outline" className="text-green-600 border-green-600">
+                          Full Access
+                        </Badge>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <Progress value={course.progress_percentage} className="h-2" />
                       <div className="flex items-center justify-between text-sm text-gray-600">
-                        <span>Last accessed: {course.last_accessed}</span>
+                        <span>Duration: {course.duration_minutes || 0} min</span>
+                        <span>Level: {course.difficulty_level}</span>
                       </div>
                       <div className="flex gap-2">
                         <Button 
                           size="sm" 
                           className="flex-1 bg-indigo-600 hover:bg-indigo-700"
-                          onClick={() => handleCourseAction(course.course_id, "continue")}
+                          onClick={() => handleCourseAction(course.id, "view")}
                         >
-                          <PlayCircle className="h-4 w-4 mr-1" /> Continue
+                          <BookOpen className="h-4 w-4 mr-1" /> Access Course
                         </Button>
                         <Button size="sm" variant="outline">
                           <MoreHorizontal className="h-4 w-4" />
@@ -597,7 +634,13 @@ export default function DashboardClientPage() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8">
+                  <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 mb-4">No courses available yet. Check back soon!</p>
+                </div>
+              )}
             </div>
           </TabsContent>
 
@@ -619,7 +662,7 @@ export default function DashboardClientPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {recentActivity.course_progress && recentActivity.course_progress.map((course, index) => (
+                    {dashboardData?.enrolled_courses && dashboardData.enrolled_courses.map((course, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-medium">{course.course_title}</TableCell>
                         <TableCell>

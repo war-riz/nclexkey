@@ -67,7 +67,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body suppressHydrationWarning={true}>
         <AuthProvider>
           {children}
           <Toaster /> {/* Ensure Toaster is rendered for toast notifications */}

@@ -139,6 +139,11 @@ class RateLimitMiddleware(MiddlewareMixin):
     """
     
     def process_request(self, request):
+        # Check if rate limiting is disabled for development
+        from django.conf import settings
+        if getattr(settings, 'DISABLE_RATE_LIMITING', False):
+            return None
+            
         # Define rate limits for different endpoints
         rate_limits = {
             '/api/auth/login': {'limit': 3, 'window': 900, 'message': 'Too many login attempts'},
@@ -262,6 +267,11 @@ class SuspiciousActivityMiddleware(MiddlewareMixin):
     """
     
     def process_request(self, request):
+        # Check if rate limiting is disabled for development
+        from django.conf import settings
+        if getattr(settings, 'DISABLE_RATE_LIMITING', False):
+            return None
+            
         ip_address = SecurityUtils.get_client_ip(request)
         
         # Check for rapid requests from same IP (separate from rate limiting)

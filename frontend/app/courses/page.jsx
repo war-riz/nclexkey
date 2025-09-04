@@ -18,7 +18,6 @@ import {
   Loader2,
   User
 } from 'lucide-react'
-import CourseEnrollmentButton from '@/components/course-enrollment-button'
 import { listAllCourses, getCourseCategoriesPublic } from '@/lib/api'
 
 function CoursesPageContent() {
@@ -84,21 +83,6 @@ function CoursesPageContent() {
 
   const handleCourseClick = (courseId) => {
     router.push(`/courses/${courseId}`)
-  }
-
-  const handleEnrollmentSuccess = (paymentData) => {
-    // Redirect to course dashboard after successful enrollment
-    if (paymentData?.course?.id) {
-      router.push(`/dashboard/courses/${paymentData.course.id}`)
-    }
-  }
-
-  const formatCurrency = (amount, currency = 'NGN') => {
-    const formatter = new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: currency,
-    })
-    return formatter.format(amount)
   }
 
   const getInitials = (name) => {
@@ -250,7 +234,7 @@ function CoursesPageContent() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Users className="h-4 w-4" />
-                    <span>{course.enrollment_count || 0}</span>
+                    <span>All Students</span>
                   </div>
                 </div>
 
@@ -259,21 +243,21 @@ function CoursesPageContent() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <div className="text-2xl font-bold text-green-600">
-                        {formatCurrency(course.price, course.currency)}
+                        Full Access
                       </div>
-                      {course.original_price && course.original_price > course.price && (
-                        <div className="text-sm text-gray-500 line-through">
-                          {formatCurrency(course.original_price, course.currency)}
-                        </div>
-                      )}
+                      <div className="text-sm text-gray-500">
+                        Included in your registration
+                      </div>
                     </div>
                   </div>
 
-                  <CourseEnrollmentButton
-                    course={course}
-                    onSuccess={handleEnrollmentSuccess}
-                    className="w-full"
-                  />
+                  <Button
+                    onClick={() => handleCourseClick(course.id)}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Access Course
+                  </Button>
                 </div>
               </CardContent>
             </Card>

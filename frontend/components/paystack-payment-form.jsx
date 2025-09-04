@@ -1,26 +1,20 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { 
   CreditCard, 
   Building2, 
   Smartphone, 
-  QrCode, 
   CheckCircle, 
   XCircle,
   Loader2,
-  Banknote,
   ArrowRight,
   Info,
-  Shield,
-  Calendar,
-  Lock
+  Shield
 } from 'lucide-react'
 import { paymentAPI } from '@/lib/api'
 
@@ -31,21 +25,14 @@ export default function PaystackPaymentForm({
   onSuccess, 
   onError,
   className = "",
-  paymentType = 'course_enrollment',
-  userData = null
+  paymentType = 'student_registration',
+  userData = null,
+  selectedProgram = null, // Add selectedProgram prop
+  onPaymentSuccess = null // Add onPaymentSuccess callback
 }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
-  const [paymentUrl, setPaymentUrl] = useState(null)
-  const [showCardForm, setShowCardForm] = useState(false)
-  const [cardData, setCardData] = useState({
-    cardNumber: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvv: '',
-    cardHolderName: ''
-  })
 
   const formatCurrency = (amount) => {
     const currencySymbols = {
@@ -59,79 +46,158 @@ export default function PaystackPaymentForm({
     return `${symbol}${amount.toLocaleString()}`
   }
 
-  const handleCardInputChange = (field, value) => {
-    setCardData(prev => ({
-      ...prev,
-      [field]: value
-    }))
-  }
-
-  const formatCardNumber = (value) => {
-    // Remove all non-digits
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
-    // Add spaces every 4 digits
-    const matches = v.match(/\d{4,16}/g)
-    const match = matches && matches[0] || ''
-    const parts = []
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4))
-    }
-    if (parts.length) {
-      return parts.join(' ')
-    } else {
-      return v
-    }
-  }
-
-  const handleCardPayment = async (e) => {
-    e.preventDefault()
+  const handlePaystackPayment = async () => {
     setIsProcessing(true)
     setError(null)
     setSuccess(null)
 
     try {
-      console.log('Initiating card payment:', {
+      console.log('Initiating Paystack payment:', {
         courseId: course.id,
         amount,
         currency,
         paymentType,
-        userData,
-        cardData
+        userData
       })
 
-      const result = await paymentAPI.initializePayment(
-        course.id,
-        'paystack',
-        paymentType,
-        userData,
-        amount,
-        currency
-      )
+      // Check if we're in test mode (for development)
+      const isTestMode = false // Disabled for live payments
 
-      if (result.success) {
-        console.log('Payment initialization successful:', result.data)
+      if (isTestMode && paymentType === 'student_registration') {
+        // Test mode: simulate successful payment
+        console.log('🧪 Test mode: Simulating successful payment')
         
-        if (result.data.payment_url) {
-          // Store payment reference for verification
-          localStorage.setItem('pending_payment_reference', result.data.reference)
-          localStorage.setItem('pending_payment_course_id', course.id)
-          localStorage.setItem('pending_payment_amount', amount.toString())
-          localStorage.setItem('pending_payment_currency', currency)
+        // Simulate payment processing
+        setTimeout(() => {
+          const testReference = `TEST-${Date.now()}`
+          const testPaymentData = {
+            reference: testReference,
+            amount: amount,
+            currency: currency,
+            status: 'completed'
+          }
           
-          // Redirect to Paystack payment page
-          window.location.href = result.data.payment_url
+          setSuccess('Payment successful! (Test Mode)')
+          onSuccess(testReference, testPaymentData)
+          
+          // Call onPaymentSuccess callback if provided (for redirect to registration)
+          if (onPaymentSuccess) {
+            onPaymentSuccess(testReference)
+          }
+        }, 2000)
+        
+        return
+      }
+
+      // Initialize payment with backend
+      const paymentResponse = await paymentAPI.initializePayment({
+        gateway: 'paystack',
+        payment_type: paymentType,
+        course_id: course.id,
+        amount: amount,
+        currency: currency,
+        user_data: userData
+      })
+
+      if (paymentResponse.success) {
+        // Store payment reference for later verification
+        localStorage.setItem('pending_payment_reference', paymentResponse.data.reference)
+        localStorage.setItem('pending_payment_type', paymentType)
+        
+        // Redirect to Paystack payment page
+        if (paymentResponse.data.payment_url) {
+          window.location.href = paymentResponse.data.payment_url
         } else {
-          setError('Payment URL not received from server')
+          throw new Error('Payment URL not received')
         }
       } else {
-        console.error('Payment initialization failed:', result.error)
-        setError(result.error?.message || 'Failed to initialize payment')
-        onError?.(result.error)
+        throw new Error(paymentResponse.error?.message || 'Payment initiation failed')
       }
+
     } catch (error) {
       console.error('Payment error:', error)
-      setError('Network error occurred. Please try again.')
-      onError?.({ message: 'Network error occurred' })
+      setError(error.message || 'Payment failed. Please try again.')
+      onError(error)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleBankTransfer = async () => {
+    setIsProcessing(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      console.log('Initiating bank transfer payment:', {
+        courseId: course.id,
+        amount,
+        currency,
+        paymentType,
+        userData
+      })
+
+      // Check if we're in test mode (for development)
+      const isTestMode = false // Disabled for live payments
+
+      if (isTestMode && paymentType === 'student_registration') {
+        // Test mode: simulate successful payment
+        console.log('🧪 Test mode: Simulating successful bank transfer')
+        
+        // Simulate payment processing
+        setTimeout(() => {
+          const testReference = `TEST-BANK-${Date.now()}`
+          const testPaymentData = {
+            reference: testReference,
+            amount: amount,
+            currency: currency,
+            status: 'completed',
+            method: 'bank_transfer'
+          }
+          
+          setSuccess('Bank transfer successful! (Test Mode)')
+          onSuccess(testReference, testPaymentData)
+          
+          // Call onPaymentSuccess callback if provided (for redirect to registration)
+          if (onPaymentSuccess) {
+            onPaymentSuccess(testReference)
+          }
+        }, 2000)
+        
+        return
+      }
+
+      // For bank transfer, we'll use Paystack's bank transfer option
+      // Initialize payment with backend
+      const paymentResponse = await paymentAPI.initializePayment({
+        gateway: 'paystack',
+        payment_type: paymentType,
+        course_id: course.id,
+        amount: amount,
+        currency: currency,
+        user_data: userData,
+        payment_method: 'bank_transfer'
+      })
+
+      if (paymentResponse.success) {
+        // Store payment reference for later verification
+        localStorage.setItem('pending_payment_reference', paymentResponse.data.reference)
+        localStorage.setItem('pending_payment_type', paymentType)
+        
+        // Redirect to Paystack payment page (will show bank transfer options)
+        if (paymentResponse.data.payment_url) {
+          window.location.href = paymentResponse.data.payment_url
+        } else {
+          throw new Error('Payment URL not received')
+        }
+      } else {
+        throw new Error(paymentResponse.error?.message || 'Payment initiation failed')
+      }
+
+    } catch (error) {
+      console.error('Bank transfer error:', error)
+      setError(error.message || 'Bank transfer failed. Please try again.')
+      onError(error)
     } finally {
       setIsProcessing(false)
     }
@@ -143,6 +209,8 @@ export default function PaystackPaymentForm({
     setSuccess(null)
 
     try {
+      console.log('🧪 Test mode: Creating test payment for student registration')
+      
       const response = await fetch('http://localhost:8000/api/payments/test-student-registration/', {
         method: 'POST',
         headers: {
@@ -158,9 +226,19 @@ export default function PaystackPaymentForm({
       
       if (data.success) {
         setSuccess(`Test payment successful! Reference: ${data.reference}`)
-        onSuccess?.(data.reference)
+        onSuccess?.(data.reference, {
+          reference: data.reference,
+          amount: data.amount,
+          currency: data.currency,
+          status: data.status
+        })
+        
+        // Call onPaymentSuccess callback if provided (for redirect to registration)
+        if (onPaymentSuccess) {
+          onPaymentSuccess(data.reference)
+        }
       } else {
-        throw new Error(data.message || 'Test payment failed')
+        throw new Error(data.error?.message || 'Test payment failed')
       }
     } catch (error) {
       console.error('Test payment error:', error)
@@ -176,10 +254,10 @@ export default function PaystackPaymentForm({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CreditCard className="h-5 w-5" />
-          Secure Payment with Paystack
+          Secure Payment Options
         </CardTitle>
         <CardDescription>
-          Complete your payment to enroll in {course.title}
+          Choose your preferred payment method to complete your registration
         </CardDescription>
       </CardHeader>
       
@@ -187,7 +265,7 @@ export default function PaystackPaymentForm({
         {/* Payment Summary */}
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="flex justify-between items-center">
-            <span className="font-medium">Course:</span>
+            <span className="font-medium">Registration:</span>
             <span>{course.title}</span>
           </div>
           <div className="flex justify-between items-center mt-2">
@@ -195,6 +273,9 @@ export default function PaystackPaymentForm({
             <span className="text-lg font-bold text-green-600">
               {formatCurrency(amount)} {currency}
             </span>
+          </div>
+          <div className="text-sm text-gray-500 mt-2">
+            One-time payment for full platform access
           </div>
         </div>
 
@@ -215,108 +296,32 @@ export default function PaystackPaymentForm({
 
         {/* Payment Methods */}
         <div className="space-y-4">
-          {/* Card Payment Form */}
+          {/* Paystack Payment */}
           <div className="border rounded-lg p-4">
             <div className="flex items-center gap-3 mb-4">
               <CreditCard className="h-5 w-5 text-blue-600" />
-              <h3 className="font-semibold">Credit/Debit Card</h3>
+              <h3 className="font-semibold">Paystack Payment</h3>
             </div>
-            
-            <form onSubmit={handleCardPayment} className="space-y-4">
-              {/* Card Number */}
-              <div>
-                <Label htmlFor="cardNumber">Card Number</Label>
-                <div className="relative">
-                  <Input
-                    id="cardNumber"
-                    type="text"
-                    placeholder="1234 5678 9012 3456"
-                    value={cardData.cardNumber}
-                    onChange={(e) => handleCardInputChange('cardNumber', formatCardNumber(e.target.value))}
-                    maxLength="19"
-                    required
-                    className="pl-10"
-                  />
-                  <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
-              </div>
-
-              {/* Card Holder Name */}
-              <div>
-                <Label htmlFor="cardHolderName">Card Holder Name</Label>
-                <Input
-                  id="cardHolderName"
-                  type="text"
-                  placeholder="John Doe"
-                  value={cardData.cardHolderName}
-                  onChange={(e) => handleCardInputChange('cardHolderName', e.target.value)}
-                  required
-                />
-              </div>
-
-              {/* Expiry Date and CVV */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="expiryMonth">Expiry Month</Label>
-                  <Input
-                    id="expiryMonth"
-                    type="text"
-                    placeholder="MM"
-                    value={cardData.expiryMonth}
-                    onChange={(e) => handleCardInputChange('expiryMonth', e.target.value.replace(/\D/g, '').slice(0, 2))}
-                    maxLength="2"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="expiryYear">Expiry Year</Label>
-                  <Input
-                    id="expiryYear"
-                    type="text"
-                    placeholder="YY"
-                    value={cardData.expiryYear}
-                    onChange={(e) => handleCardInputChange('expiryYear', e.target.value.replace(/\D/g, '').slice(0, 2))}
-                    maxLength="2"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="cvv">CVV</Label>
-                <div className="relative">
-                  <Input
-                    id="cvv"
-                    type="text"
-                    placeholder="123"
-                    value={cardData.cvv}
-                    onChange={(e) => handleCardInputChange('cvv', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    maxLength="4"
-                    required
-                    className="pl-10"
-                  />
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
-              </div>
-
-              <Button 
-                type="submit"
-                disabled={isProcessing}
-                className="w-full bg-blue-600 hover:bg-blue-700"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Processing Payment...
-                  </>
-                ) : (
-                  <>
-                    Pay {formatCurrency(amount)} with Card
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </>
-                )}
-              </Button>
-            </form>
+            <p className="text-sm text-gray-600 mb-4">
+              Pay with credit/debit cards, USSD, or mobile money through Paystack
+            </p>
+            <Button 
+              onClick={handlePaystackPayment}
+              disabled={isProcessing}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Pay with Paystack
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </>
+              )}
+            </Button>
           </div>
 
           {/* Bank Transfer */}
@@ -326,10 +331,10 @@ export default function PaystackPaymentForm({
               <h3 className="font-semibold">Bank Transfer</h3>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              Transfer directly from your bank account
+              Transfer directly from your bank account to our account
             </p>
             <Button 
-              onClick={handleCardPayment}
+              onClick={handleBankTransfer}
               disabled={isProcessing}
               variant="outline"
               className="w-full"
@@ -342,35 +347,6 @@ export default function PaystackPaymentForm({
               ) : (
                 <>
                   Pay with Bank Transfer
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* USSD */}
-          <div className="border rounded-lg p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Smartphone className="h-5 w-5 text-purple-600" />
-              <h3 className="font-semibold">USSD Payment</h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Pay using USSD code on your mobile phone
-            </p>
-            <Button 
-              onClick={handleCardPayment}
-              disabled={isProcessing}
-              variant="outline"
-              className="w-full"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Pay with USSD
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </>
               )}
@@ -414,7 +390,7 @@ export default function PaystackPaymentForm({
             <Shield className="h-5 w-5 text-gray-500 mt-0.5" />
             <div className="text-sm text-gray-600">
               <p className="font-medium mb-1">Secure Payment</p>
-              <p>All payments are processed securely through Paystack. Your card details are never stored on our servers.</p>
+              <p>All payments are processed securely. Your payment details are never stored on our servers.</p>
             </div>
           </div>
         </div>
@@ -428,6 +404,7 @@ export default function PaystackPaymentForm({
             <span>Verve</span>
             <span>Bank Transfer</span>
             <span>USSD</span>
+            <span>Mobile Money</span>
           </div>
         </div>
       </CardContent>

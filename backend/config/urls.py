@@ -19,9 +19,11 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('users.urls')),
+    path('api/auth/', include('users.auth_urls')),  # Fixed: Proper API prefix
+    path('', include('users.urls')),  # Keep for other user URLs
     path('', include('courses.urls')),
-    path('', include('payments.urls')),
+    path('api/payments/', include('payments.urls')),
+    path('api/messaging/', include('messaging.urls')),
     # Add webhook URLs directly to avoid double api prefix
     path('api/payments/webhooks/', include('payments.webhook_urls')),
 ]

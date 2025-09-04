@@ -63,9 +63,21 @@ export default function ConversationList({ onSelectConversation, selectedConvers
       const result = await chatAPI.getUnreadCount()
       if (result.success) {
         const counts = {}
-        result.data.conversation_counts.forEach(item => {
-          counts[item.conversation_id] = item.unread_count
-        })
+        // Handle different response structures
+        if (result.data.conversation_counts && Array.isArray(result.data.conversation_counts)) {
+          result.data.conversation_counts.forEach(item => {
+            counts[item.conversation_id] = item.unread_count
+          })
+        } else if (result.data.conversations && Array.isArray(result.data.conversations)) {
+          // Alternative structure: conversations with unread_count
+          result.data.conversations.forEach(conversation => {
+            if (conversation.unread_count !== undefined) {
+              counts[conversation.id] = conversation.unread_count
+            }
+          })
+        } else {
+          console.warn('Unexpected unread count response structure:', result.data)
+        }
         setUnreadCounts(counts)
       }
     } catch (error) {

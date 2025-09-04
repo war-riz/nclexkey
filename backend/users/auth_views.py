@@ -33,22 +33,63 @@ def generate_jwt_token(user):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
-    """Student registration endpoint"""
+    """Student registration endpoint with payment verification"""
     try:
+        # Check if rate limiting is disabled for development
+        from django.conf import settings
+        is_development = getattr(settings, 'DISABLE_RATE_LIMITING', False)
+        
         email = request.data.get('email')
         password = request.data.get('password')
-        full_name = request.data.get('full_name')
-        phone_number = request.data.get('phone_number')
+        full_name = request.data.get('fullName') or request.data.get('full_name')
+        phone_number = request.data.get('phoneNumber') or request.data.get('phone_number')
+        payment_reference = request.data.get('paymentReference') or request.data.get('payment_reference')
         
         if not all([email, password, full_name]):
             return Response({
-                'detail': 'Email, password, and full_name are required.'
+                'success': False,
+                'error': {
+                    'message': 'Email, password, and full name are required.'
+                }
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Check if user already exists
         if User.objects.filter(email=email).exists():
             return Response({
-                'detail': 'User with this email already exists.'
+                'success': False,
+                'error': {
+                    'message': 'User with this email already exists.'
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify payment before creating user
+        if not payment_reference:
+            return Response({
+                'success': False,
+                'error': {
+                    'message': 'Payment reference is required for student registration.'
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if payment exists and is completed
+        try:
+            from payments.models import Payment
+            payment = Payment.objects.get(reference=payment_reference)
+            
+            if payment.status != 'completed':
+                return Response({
+                    'success': False,
+                    'error': {
+                        'message': 'Payment not completed. Please complete payment first.'
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Payment.DoesNotExist:
+            return Response({
+                'success': False,
+                'error': {
+                    'message': 'Invalid payment reference. Please complete payment first.'
+                }
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Create student user
@@ -63,10 +104,17 @@ def register(request):
         user.set_password(password)
         user.save()
         
+        # Link payment to user
+        payment.user = user
+        payment.save()
+        
         # Generate JWT token
         token = generate_jwt_token(user)
         
+        logger.info(f"Student registration successful: {email} (Development: {is_development})")
+        
         return Response({
+            'success': True,
             'message': 'Registration successful. Please verify your email.',
             'token': token,
             'user': {
@@ -81,7 +129,10 @@ def register(request):
     except Exception as e:
         logger.error(f"Registration error: {str(e)}")
         return Response({
-            'detail': 'An error occurred during registration.'
+            'success': False,
+            'error': {
+                'message': 'An error occurred during registration.'
+            }
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
@@ -187,12 +238,18 @@ def instructor_login(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def logout(request):
-    """Logout endpoint"""
+    """Logout endpoint - no authentication required"""
     try:
-        # In a simple JWT system, we just return success
-        # In production, you might want to blacklist the token
+        # Get refresh token from request body
+        refresh_token = request.data.get('refresh_token')
+        
+        if refresh_token:
+            # In production, you might want to blacklist the token
+            # For now, just return success
+            logger.info(f"User logged out with refresh token: {refresh_token[:20]}...")
+        
         return Response({
             'message': 'Logout successful'
         }, status=status.HTTP_200_OK)
@@ -269,4 +326,102 @@ def update_profile(request):
         logger.error(f"Update profile error: {str(e)}")
         return Response({
             'detail': 'An error occurred while updating profile.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def test_rate_limiting(request):
+    """Test endpoint to check if rate limiting is working"""
+    try:
+        from django.conf import settings
+        is_development = getattr(settings, 'DISABLE_RATE_LIMITING', False)
+        
+        # Clear any existing cache
+        from django.core.cache import cache
+        cache.clear()
+        
+        return Response({
+            'success': True,
+            'message': 'Rate limiting test endpoint',
+            'rate_limiting_disabled': is_development,
+            'debug_mode': settings.DEBUG,
+            'timestamp': timezone.now().isoformat()
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Rate limiting test error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def clear_rate_limit_cache(request):
+    """Development endpoint to clear rate limiting cache"""
+    try:
+        from django.conf import settings
+        if not getattr(settings, 'DISABLE_RATE_LIMITING', False):
+            return Response({
+                'success': False,
+                'error': {
+                    'message': 'This endpoint is only available in development mode.'
+                }
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        from django.core.cache import cache
+        # Clear all rate limiting cache
+        cache.clear()
+        
+        logger.info("Rate limiting cache cleared for development")
+        
+        return Response({
+            'success': True,
+            'message': 'Rate limiting cache cleared successfully.'
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Error clearing rate limit cache: {str(e)}")
+        return Response({
+            'success': False,
+            'error': {
+                'message': 'Failed to clear rate limiting cache.'
+            }
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_instructors(request):
+    """Get list of all instructors for messaging"""
+    try:
+        # Get all active instructors
+        instructors = User.objects.filter(
+            role='instructor',
+            is_active=True
+        ).order_by('full_name')
+        
+        instructors_data = []
+        for instructor in instructors:
+            instructors_data.append({
+                'id': str(instructor.id),
+                'full_name': instructor.full_name,
+                'email': instructor.email,
+                'specialty': getattr(instructor, 'specialty', 'NCLEX Preparation'),
+                'bio': getattr(instructor, 'bio', ''),
+                'is_available': True  # You can add availability logic here
+            })
+        
+        return Response({
+            'success': True,
+            'data': instructors_data,
+            'total': len(instructors_data)
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Get instructors error: {str(e)}")
+        return Response({
+            'success': False,
+            'error': {
+                'message': 'Failed to fetch instructors.'
+            }
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
