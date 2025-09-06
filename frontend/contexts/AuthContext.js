@@ -23,6 +23,15 @@ export const AuthProvider = ({ children }) => {
   // Check if user is authenticated on mount
   useEffect(() => {
     const checkAuth = async () => {
+      // For development/testing: clear any existing tokens to ensure clean login state
+      if (process.env.NODE_ENV === 'development') {
+        localStorage.removeItem("access_token")
+        localStorage.removeItem("refresh_token")
+        localStorage.removeItem("user_data")
+        setLoading(false)
+        return
+      }
+      
       const token = localStorage.getItem("access_token")
       if (token) {
         try {
@@ -107,7 +116,7 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (profileData) => {
     try {
-      const result = await api.updateProfile(profileData)
+      const result = await api.updateUserProfile(profileData)
       if (result.success) {
         setUser(result.data)
         toast({

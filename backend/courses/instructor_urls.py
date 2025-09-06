@@ -32,6 +32,7 @@ urlpatterns = [
     path('courses/statistics/', instructor_views.course_statistics, name='admin_course_statistics'),
     path('courses/<uuid:course_id>/enrollments/', instructor_views.course_enrollments, name='admin_course_enrollments'),
     path('users/<uuid:user_id>/courses/<uuid:course_id>/progress/', instructor_views.user_course_progress_detail, name='admin_user_course_progress'),
+    path('analytics/comprehensive/', instructor_views.get_comprehensive_analytics, name='admin_comprehensive_analytics'),
     
     # Bulk Operations
     path('courses/bulk-actions/', instructor_views.bulk_course_actions, name='admin_bulk_course_actions'),
@@ -80,4 +81,9 @@ urlpatterns = [
     
     # Course structure only (sections, lessons, exams - no statistics)
     path('courses/<uuid:course_id>/structure/', instructor_views.get_course_structure_only,name='admin-course-structure'),  
+    
+    # Missing endpoints for admin dashboard
+    path('dashboard/', instructor_views.instructor_dashboard, name='admin_dashboard'),
+    path('students/', instructor_views.get_all_students, name='admin_get_all_students'),
+    path('stats/', instructor_views.instructor_stats, name='admin_instructor_stats'),
 ]

@@ -53,4 +53,7 @@ urlpatterns = [
     
     # User Dashboard
     path('dashboard/', student_views.user_dashboard, name='user_dashboard'),
+    
+    # Student Analytics
+    path('student/analytics/', student_views.get_student_analytics, name='student_analytics'),
 ]

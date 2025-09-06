@@ -12,6 +12,7 @@ from courses.models import Course, CourseEnrollment
 from users.models import User
 import logging
 import uuid
+from django.http import HttpResponse
 
 logger = logging.getLogger(__name__)
 
@@ -146,213 +147,265 @@ def admin_payment_overview(request):
 @permission_classes([AllowAny])  # Allow unauthenticated access for registration
 def initialize_payment(request):
     """
-    Initialize payment for course enrollment or student registration
+    Initialize payment for student registration ONLY
     POST /api/payments/initialize/
     """
     try:
         gateway_name = request.data.get('gateway', 'paystack')
-        payment_type = request.data.get('payment_type', 'course_enrollment')
-        course_id = request.data.get('course_id')
+        payment_type = request.data.get('payment_type', 'student_registration')
         amount = request.data.get('amount')
         currency = request.data.get('currency', 'NGN')
         
         # Get user data for student registration
         user_data = request.data.get('user_data', {})
         
-        # Validate payment type
-        if payment_type not in ['course_enrollment', 'student_registration']:
-            return Response(
-                {'detail': 'Invalid payment type'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Handle course enrollment
-        if payment_type == 'course_enrollment':
-            if not course_id:
-                return Response(
-                    {'detail': 'Course ID is required for course enrollment'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            try:
-                course = Course.objects.get(id=course_id)
-                amount = amount or course.price
-                currency = currency or course.currency
-            except Course.DoesNotExist:
-                return Response(
-                    {'detail': 'Course not found'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-        
-        # Handle student registration
-        elif payment_type == 'student_registration':
-            amount = amount or 5000  # Default registration fee
-            currency = currency or 'NGN'
-            course_id = 'student-registration'  # Special course ID for registration
-        
-        # Get or create payment gateway (create default if none exists)
-        try:
-            gateway = PaymentGateway.objects.get(name=gateway_name, is_active=True)
-        except PaymentGateway.DoesNotExist:
-            # Create default Paystack gateway if it doesn't exist
-            gateway, created = PaymentGateway.objects.get_or_create(
-                name='paystack',
-                defaults={
-                    'display_name': 'Paystack',
-                    'is_active': True,
-                    'config': {
-                        'public_key': 'pk_test_...',  # Default test key
-                        'secret_key': 'sk_test_...'
-                    }
-                }
-            )
-        
-        # For student registration, we don't have a user yet, so create a temporary payment
-        if payment_type == 'student_registration':
-            # Create payment without user (will be linked later)
-            payment = Payment.objects.create(
-                user=None,  # No user yet
-                course_id=None,  # No course for registration
-                amount=amount,
-                currency=currency,
-                gateway=gateway,
-                reference=f"REG-{uuid.uuid4().hex[:8].upper()}",
-                status='pending',
-                payment_method=payment_type,
-                metadata={
-                    'user_data': user_data,
-                    'payment_type': payment_type
-                }
-            )
-        else:
-            # For course enrollment, user must be authenticated
-            if not request.user.is_authenticated:
-                return Response(
-                    {'detail': 'Authentication required for course enrollment'},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
-            
-            payment = Payment.objects.create(
-                user=request.user,
-                course_id=course_id,
-                amount=amount,
-                currency=currency,
-                gateway=gateway,
-                reference=f"PAY-{uuid.uuid4().hex[:8].upper()}",
-                status='pending',
-                payment_method=payment_type
-            )
-        
-        # Generate payment URL
-        try:
-            # For now, we'll return a test payment URL
-            # In production, you would integrate with Paystack API
-            callback_url = f"{getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')}/payment-status/{payment.reference}/"
-            
-            # Generate a test payment URL (in production, this would be Paystack's payment URL)
-            if gateway_name == 'paystack':
-                payment_url = f"https://checkout.paystack.com/{payment.reference}"
-            else:
-                payment_url = f"https://test-payment.com/{payment.reference}"
-            
-            return Response({
-                'success': True,
-                'data': {
-                    'payment_url': payment_url,
-                    'reference': payment.reference,
-                    'amount': float(amount),
-                    'currency': currency,
-                    'gateway': gateway_name,
-                    'callback_url': callback_url
-                }
-            }, status=status.HTTP_200_OK)
-                
-        except Exception as e:
-            logger.error(f"Payment initialization error: {str(e)}")
-            payment.status = 'failed'
-            payment.save()
+        # Only allow student registration payments
+        if payment_type != 'student_registration':
             return Response({
                 'success': False,
                 'error': {
-                    'message': 'Payment service temporarily unavailable'
+                    'message': 'Only student registration payments are supported.'
                 }
-            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate required user data
+        if not user_data.get('email') or not user_data.get('full_name'):
+            return Response({
+                'success': False,
+                'error': {
+                    'message': 'Email and full name are required for registration payment.'
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Set fixed registration fee
+        amount = 30000  # 30,000 NGN for full platform access
+        currency = 'NGN'
+        
+        # Get or create payment gateway
+        try:
+            gateway = PaymentGateway.objects.get(name=gateway_name, is_active=True)
+        except PaymentGateway.DoesNotExist:
+            # Create default Paystack gateway if none exists
+            gateway = PaymentGateway.objects.create(
+                name='paystack',
+                display_name='Paystack',
+                is_active=True,
+                is_default=True,
+                public_key=getattr(settings, 'PAYSTACK_PUBLIC_KEY', ''),
+                secret_key=getattr(settings, 'PAYSTACK_SECRET_KEY', ''),
+                webhook_secret=getattr(settings, 'PAYSTACK_WEBHOOK_SECRET', ''),
+                supported_currencies=['NGN', 'USD', 'GHS', 'KES'],
+                transaction_fee_percentage=0.0150,  # 1.5%
+                transaction_fee_cap=2000.00,  # 2000 NGN cap
+                supports_transfers=True,
+                minimum_transfer_amount=1000.00
+            )
+        
+        # Create payment record for student registration
+        payment = Payment.objects.create(
+            user=None,  # Will be linked after user creation
+            course_id=None,  # No specific course for registration
+            amount=amount,
+            currency=currency,
+            gateway=gateway,
+            reference=f"REG-{uuid.uuid4().hex[:8].upper()}",
+            status='pending',
+            payment_method=payment_type,
+            customer_email=user_data.get('email', ''),
+            customer_name=user_data.get('full_name', ''),
+            customer_phone=user_data.get('phone_number', ''),
+            metadata={
+                'payment_type': payment_type,
+                'user_data': user_data,
+                'description': 'NCLEX Keys Platform Access - Full Course Access'
+            }
+        )
+        
+        # Generate payment URL using Paystack API
+        try:
+            import requests
+            
+            # Paystack API endpoint
+            paystack_url = "https://api.paystack.co/transaction/initialize"
+            
+            # Prepare payload for Paystack
+            payload = {
+                "email": user_data.get('email', ''),
+                "amount": int(amount * 100),  # Paystack expects amount in kobo (smallest currency unit)
+                "currency": currency,
+                "reference": payment.reference,
+                "callback_url": f"{getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')}/payment-status/{payment.reference}/",
+                "metadata": {
+                    "payment_id": str(payment.id),
+                    "payment_type": payment_type,
+                    "description": "NCLEX Keys Platform Access",
+                    "user_data": user_data
+                }
+            }
+            
+            # Add payment method if specified
+            payment_method = request.data.get('payment_method')
+            if payment_method == 'bank_transfer':
+                payload["channels"] = ["bank"]
+            else:
+                # Default channels for Paystack
+                payload["channels"] = ["card", "bank", "ussd", "qr", "mobile_money", "bank_transfer"]
+            
+            # Make request to Paystack
+            headers = {
+                "Authorization": f"Bearer {gateway.secret_key}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.post(paystack_url, json=payload, headers=headers)
+            response_data = response.json()
+            
+            if response.status_code == 200 and response_data.get('status'):
+                # Payment URL from Paystack
+                payment_url = response_data['data']['authorization_url']
+                
+                # Update payment with Paystack reference
+                payment.gateway_reference = response_data['data']['reference']
+                payment.save()
+                
+                logger.info(f"Payment initialized successfully: {payment.reference} for {user_data.get('email')}")
+                
+                return Response({
+                    'success': True,
+                    'data': {
+                        'payment_url': payment_url,
+                        'reference': payment.reference,
+                        'amount': float(amount),
+                        'currency': currency,
+                        'gateway': gateway_name,
+                        'callback_url': payload['callback_url'],
+                        'paystack_reference': response_data['data']['reference'],
+                        'description': 'NCLEX Keys Platform Access - Full Course Access'
+                    }
+                }, status=status.HTTP_200_OK)
+            else:
+                # Paystack error
+                error_message = response_data.get('message', 'Payment initialization failed')
+                logger.error(f"Paystack error: {error_message}")
+                
+                # Mark payment as failed
+                payment.status = 'failed'
+                payment.save()
+                
+                return Response({
+                    'success': False,
+                    'error': {
+                        'message': f'Payment gateway error: {error_message}'
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except Exception as e:
+            logger.error(f"Payment initialization error: {str(e)}")
+            
+            # Mark payment as failed
+            payment.status = 'failed'
+            payment.save()
+            
+            return Response({
+                'success': False,
+                'error': {
+                    'message': 'Failed to initialize payment. Please try again.'
+                }
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
     except Exception as e:
         logger.error(f"Payment initialization error: {str(e)}")
         return Response({
             'success': False,
             'error': {
-                'message': 'Failed to initialize payment'
+                'message': 'An unexpected error occurred. Please try again.'
             }
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])  # Allow unauthenticated access for payment verification
 def verify_payment(request, reference):
     """
-    Verify payment status
+    Verify payment status for student registration
     POST /api/payments/verify/{reference}/
     """
     try:
-        payment = Payment.objects.get(reference=reference, user=request.user)
-        
-        # Simplified payment verification - mark as completed
+        # Find payment by reference
         try:
-            # For now, we'll mark the payment as completed
-            # In production, you would verify with Paystack webhook
-            payment.status = 'completed'
-            payment.completed_at = timezone.now()
-            payment.save()
-            
-            # Handle course enrollment if applicable
-            if payment.course:
-                enrollment, created = CourseEnrollment.objects.get_or_create(
-                    user=request.user,
-                    course=payment.course,
-                    defaults={
-                        'payment_status': 'completed',
-                        'payment_method': payment.gateway.name,
-                        'payment_id': payment.reference,
-                        'amount_paid': payment.amount,
-                        'currency': payment.currency
-                    }
-                )
-                if not created:
-                    enrollment.payment_status = 'completed'
-                    enrollment.save()
-            
-            return Response({
-                'success': True,
-                'data': {
-                    'payment': PaymentSerializer(payment).data,
-                    'message': 'Payment verified successfully'
-                }
-            }, status=status.HTTP_200_OK)
-                
-        except Exception as e:
-            logger.error(f"Payment verification error: {str(e)}")
+            payment = Payment.objects.get(reference=reference)
+        except Payment.DoesNotExist:
             return Response({
                 'success': False,
                 'error': {
-                    'message': 'Payment verification failed'
+                    'message': 'Payment not found with this reference.'
                 }
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check if payment is already completed
+        if payment.status == 'completed':
+            return Response({
+                'success': True,
+                'data': {
+                    'payment': {
+                        'reference': payment.reference,
+                        'status': payment.status,
+                        'amount': float(payment.amount),
+                        'currency': payment.currency,
+                        'completed_at': payment.completed_at
+                    },
+                    'message': 'Payment already verified'
+                }
+            }, status=status.HTTP_200_OK)
+        
+        # For student registration payments, we'll mark them as completed
+        # In production, you would verify with Paystack webhook
+        if payment.payment_method == 'student_registration':
+            try:
+                # Mark payment as completed
+                payment.status = 'completed'
+                payment.completed_at = timezone.now()
+                payment.save()
+                
+                logger.info(f"Student registration payment {reference} marked as completed")
+                
+                return Response({
+                    'success': True,
+                    'data': {
+                        'payment': {
+                            'reference': payment.reference,
+                            'status': payment.status,
+                            'amount': float(payment.amount),
+                            'currency': payment.currency,
+                            'completed_at': payment.completed_at,
+                            'description': 'NCLEX Keys Platform Access - Full Course Access'
+                        },
+                        'message': 'Payment verified successfully. You can now complete your registration.'
+                    }
+                }, status=status.HTTP_200_OK)
+                    
+            except Exception as e:
+                logger.error(f"Payment verification error: {str(e)}")
+                return Response({
+                    'success': False,
+                    'error': {
+                        'message': 'Payment verification failed'
+                    }
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({
+                'success': False,
+                'error': {
+                    'message': 'Invalid payment type for verification'
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
             
-    except Payment.DoesNotExist:
-        return Response({
-            'success': False,
-            'error': {
-                'message': 'Payment not found'
-            }
-        }, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         logger.error(f"Payment verification error: {str(e)}")
         return Response({
             'success': False,
             'error': {
-                'message': 'Failed to verify payment'
+                'message': 'An error occurred during payment verification'
             }
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -454,4 +507,134 @@ def test_student_registration(request):
         return Response({
             'success': False,
             'message': 'Test payment failed'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def simple_test(request):
+    """
+    Very simple test endpoint - no Django REST framework
+    """
+    return HttpResponse("Payment endpoints are working!", content_type="text/plain")
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def debug_payment_endpoint(request):
+    """
+    Debug endpoint to test if payment URLs are accessible
+    GET /api/payments/debug/
+    """
+    return Response({
+        'success': True,
+        'message': 'Payment endpoints are accessible',
+        'timestamp': timezone.now().isoformat(),
+        'debug': True
+    })
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def test_student_registration_payment(request):
+    """
+    Test endpoint for simulating successful student registration payment
+    POST /api/payments/test-student-registration/
+    """
+    try:
+        logger.info("Test payment endpoint called")
+        
+        # Only allow in development
+        if not settings.DEBUG:
+            logger.warning("Test endpoint called in production mode")
+            return Response({
+                'success': False,
+                'error': {
+                    'message': 'Test endpoint only available in development mode'
+                }
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        logger.info("Development mode confirmed, proceeding with test payment")
+        
+        amount = request.data.get('amount', 30000)
+        currency = request.data.get('currency', 'NGN')
+        
+        logger.info(f"Creating test payment: {amount} {currency}")
+        
+        # Get or create payment gateway
+        try:
+            logger.info("Attempting to get/create payment gateway")
+            gateway = PaymentGateway.objects.get(name='paystack', is_active=True)
+            logger.info(f"Found existing gateway: {gateway.id}")
+        except PaymentGateway.DoesNotExist:
+            logger.info("Creating new Paystack gateway")
+            # Create default Paystack gateway if none exists
+            gateway = PaymentGateway.objects.create(
+                name='paystack',
+                display_name='Paystack',
+                is_active=True,
+                is_default=True,
+                public_key=getattr(settings, 'PAYSTACK_PUBLIC_KEY', ''),
+                secret_key=getattr(settings, 'PAYSTACK_SECRET_KEY', ''),
+                webhook_secret=getattr(settings, 'PAYSTACK_WEBHOOK_SECRET', ''),
+                supported_currencies=['NGN', 'USD', 'GHS', 'KES'],
+                transaction_fee_percentage=0.0150,  # 1.5%
+                transaction_fee_cap=2000.00,  # 2000 NGN cap
+                supports_transfers=True,
+                minimum_transfer_amount=1000.00
+            )
+            logger.info(f"Created new gateway: {gateway.id}")
+        
+        # Create test payment record
+        logger.info("Creating payment record")
+        
+        # Generate test reference
+        test_reference = f"TEST-{uuid.uuid4().hex[:8].upper()}"
+        
+        # Prepare payment data
+        payment_data = {
+            'reference': test_reference,
+            'gateway': gateway,
+            'amount': amount,
+            'currency': currency,
+            'status': 'completed',
+            'payment_method': 'student_registration',
+            'customer_email': 'test@example.com',
+            'customer_name': 'Test User',
+            'customer_phone': '+2348000000000',
+            'paid_at': timezone.now(),
+            'metadata': {
+                'payment_type': 'student_registration',
+                'description': 'NCLEX Keys Platform Access - Full Course Access (Test)',
+                'test_mode': True
+            }
+        }
+        
+        logger.info(f"Payment data prepared: {payment_data}")
+        
+        try:
+            payment = Payment.objects.create(**payment_data)
+            logger.info(f"Test payment created successfully: {payment.reference}")
+        except Exception as create_error:
+            logger.error(f"Error creating payment: {str(create_error)}")
+            logger.error(f"Payment data: {payment_data}")
+            raise create_error
+        
+        return Response({
+            'success': True,
+            'reference': payment.reference,
+            'amount': float(amount),
+            'currency': currency,
+            'status': 'completed',
+            'message': 'Test payment created successfully'
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        logger.error(f"Test payment creation error: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        return Response({
+            'success': False,
+            'error': {
+                'message': f'Failed to create test payment: {str(e)}',
+                'type': type(e).__name__
+            }
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

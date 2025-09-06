@@ -46,7 +46,7 @@ class IsAdmin(BasePermission):
             print("User has no role attribute - permission denied")
             return False
             
-        result = request.user.role in ['admin', 'super_admin']
+        result = request.user.role in ['admin', 'super_admin', 'instructor']
         print(f"Admin role check result: {result}")
         return result
 

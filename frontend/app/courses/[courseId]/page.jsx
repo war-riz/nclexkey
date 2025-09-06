@@ -13,15 +13,12 @@ import {
   Clock, 
   Users, 
   Star, 
-  Play, 
   BookOpen, 
-  Award,
   ArrowLeft,
   CheckCircle,
   XCircle,
   User
 } from 'lucide-react'
-import CourseEnrollmentButton from '@/components/course-enrollment-button'
 import { getCourseDetailsPublic } from '@/lib/api'
 
 export default function CourseDetailPage() {
@@ -53,19 +50,6 @@ export default function CourseDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleEnrollmentSuccess = (paymentData) => {
-    // Redirect to course dashboard after successful enrollment
-    router.push(`/dashboard/courses/${params.courseId}`)
-  }
-
-  const formatCurrency = (amount, currency = 'NGN') => {
-    const formatter = new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: currency,
-    })
-    return formatter.format(amount)
   }
 
   const getInitials = (name) => {
@@ -255,40 +239,41 @@ export default function CourseDetailPage() {
             {/* Enrollment Card */}
             <Card>
               <CardHeader>
-                <CardTitle>Enroll in this Course</CardTitle>
+                <CardTitle>Access This Course</CardTitle>
                 <CardDescription>
-                  Get lifetime access to all course content
+                  You have full access to all course content
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-green-600 mb-2">
-                    {formatCurrency(course.price, course.currency)}
+                    Full Access
                   </div>
-                  {course.original_price && course.original_price > course.price && (
-                    <div className="text-sm text-gray-500 line-through">
-                      {formatCurrency(course.original_price, course.currency)}
-                    </div>
-                  )}
+                  <div className="text-sm text-gray-500">
+                    Included in your registration
+                  </div>
                 </div>
 
-                <CourseEnrollmentButton
-                  course={course}
-                  onSuccess={handleEnrollmentSuccess}
-                />
+                <Button
+                  onClick={() => router.push(`/dashboard`)}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Go to Dashboard
+                </Button>
 
                 <div className="text-sm text-gray-600 space-y-2">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>Lifetime access</span>
+                    <span>Full platform access</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>All courses included</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
                     <span>Certificate of completion</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>30-day money-back guarantee</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4 text-green-500" />
@@ -305,8 +290,8 @@ export default function CourseDetailPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Students enrolled:</span>
-                  <span className="font-semibold">{course.enrollment_count || 0}</span>
+                  <span className="text-gray-600">Student access:</span>
+                  <span className="font-semibold">All Students</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Course rating:</span>

@@ -138,18 +138,16 @@ class Course(models.Model):
         related_name="courses"
     )
 
-    # Requirements - list of strings
-    requirements = ArrayField(
-        models.CharField(max_length=255, blank=True),
-        blank=True, default=list,
-        help_text="List of requirements/prerequisites for this course"
+    # Requirements - JSON string for SQLite compatibility
+    requirements = models.TextField(
+        blank=True, default='[]',
+        help_text="JSON string of requirements/prerequisites for this course"
     )
 
-    # What students will learn - list of strings
-    what_you_will_learn = ArrayField(
-        models.CharField(max_length=255, blank=True),
-        blank=True, default=list,
-        help_text="List of learning objectives/outcomes"
+    # What students will learn - JSON string for SQLite compatibility
+    what_you_will_learn = models.TextField(
+        blank=True, default='[]',
+        help_text="JSON string of learning objectives/outcomes"
     )
 
     

@@ -2,6 +2,6 @@
 from django.urls import path, include
 
 urlpatterns = [
-    # Authentication endpoints
-    path('api/auth', include('users.auth_urls')),
+    # Other user-related URLs (not auth)
+    # Add any non-auth user URLs here
 ]

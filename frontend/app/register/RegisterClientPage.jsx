@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, User, Mail, Phone, Lock, Eye, EyeOff, GraduationCap, CreditCard } from "lucide-react"
+import { Loader2, User, Mail, Phone, Lock, Eye, EyeOff, GraduationCap, CreditCard, CheckCircle } from "lucide-react"
 import RateLimitMessage from "@/components/RateLimitMessage"
 import PaystackPaymentForm from "@/components/paystack-payment-form"
 
@@ -28,39 +28,61 @@ export default function RegisterClientPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [paymentReference, setPaymentReference] = useState("")
+  const [paymentData, setPaymentData] = useState(null)
   const router = useRouter()
   const { register } = useAuth()
   const { toast } = useToast()
 
-  // Get selected course from localStorage or use default
-  const [selectedCourse, setSelectedCourse] = useState(null)
-  
+  // Student registration fee - will be overridden by selected program
+  const [registrationFee, setRegistrationFee] = useState(30000) // Default: 30,000 NGN
+  const [registrationCurrency, setRegistrationCurrency] = useState('NGN')
+
+  // State for selected program
+  const [selectedProgram, setSelectedProgram] = useState(null)
+
+  // Check for selected program and payment reference in URL
   useEffect(() => {
-    const storedCourse = localStorage.getItem('selectedCourse')
-    if (storedCourse) {
+    // Get selected program from localStorage
+    const storedProgram = localStorage.getItem('selectedCourse')
+    if (storedProgram) {
       try {
-        setSelectedCourse(JSON.parse(storedCourse))
+        const program = JSON.parse(storedProgram)
+        setSelectedProgram(program)
+        
+        // Update registration fee based on selected program
+        if (program.price) {
+          setRegistrationFee(program.price)
+          setRegistrationCurrency(program.currency)
+        }
+        
+        console.log('Selected program loaded:', program)
       } catch (error) {
-        console.error('Error parsing stored course:', error)
+        console.error('Error parsing stored program:', error)
       }
     }
+    
+    // Check for payment reference in URL (when returning from payment status page)
+    const urlParams = new URLSearchParams(window.location.search)
+    const paymentRef = urlParams.get('payment_ref')
+    
+    if (paymentRef) {
+      // User is returning from payment status page with a payment reference
+      setPaymentReference(paymentRef)
+      setPaymentSuccess(true)
+      setPaymentData({
+        reference: paymentRef,
+        amount: selectedProgram?.price || registrationFee,
+        currency: selectedProgram?.currency || registrationCurrency,
+        status: 'completed'
+      })
+      
+      toast({
+        title: "Payment Reference Found",
+        description: "Payment reference detected. You can now complete your registration.",
+        variant: "default",
+      })
+    }
   }, [])
-
-  // Student registration fee based on selected course
-  const getRegistrationFee = () => {
-    if (selectedCourse) {
-      return selectedCourse.price
-    }
-    // Default fee if no course selected
-    return 30000 // 30,000 NGN for Nigeria
-  }
-
-  const getRegistrationCurrency = () => {
-    if (selectedCourse) {
-      return selectedCourse.currency
-    }
-    return 'NGN'
-  }
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -69,12 +91,13 @@ export default function RegisterClientPage() {
     }))
   }
 
-  const handlePaymentSuccess = (reference) => {
+  const handlePaymentSuccess = (reference, paymentInfo) => {
     setPaymentSuccess(true)
     setPaymentReference(reference)
+    setPaymentData(paymentInfo)
     toast({
-      title: "Payment Successful!",
-      description: "Your payment has been processed. Creating your account...",
+      title: "Payment Successful! 🎉",
+      description: "Your payment has been processed. Now creating your account...",
       variant: "default",
     })
   }
@@ -92,6 +115,14 @@ export default function RegisterClientPage() {
     setLoading(true)
     setError(null)
 
+    // Debug: Log the current state
+    console.log('Registration attempt - Current state:', {
+      paymentSuccess,
+      paymentReference,
+      selectedProgram,
+      formData: { email: formData.email, fullName: formData.fullName }
+    })
+
     // Validation
     if (formData.password !== formData.confirmPassword) {
       setError({ message: "Passwords do not match." })
@@ -104,26 +135,28 @@ export default function RegisterClientPage() {
       return
     }
 
-    if (formData.password.length < 8) {
-      setError({ message: "Password must be at least 8 characters long." })
+    // Check if payment is completed
+    if (!paymentSuccess || !paymentReference) {
+      const errorMsg = !paymentSuccess 
+        ? "Please complete payment before registration." 
+        : "Payment reference is missing. Please complete payment first."
+      
+      setError({ message: errorMsg })
       setLoading(false)
-      toast({
-        title: "Registration Failed",
-        description: "Password must be at least 8 characters long.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Require payment before registration
-    if (!paymentSuccess) {
-      setError({ message: "Please complete payment before registration." })
-      setLoading(false)
+      
       toast({
         title: "Payment Required",
-        description: "Please complete payment before registration.",
+        description: errorMsg,
         variant: "destructive",
       })
+      
+      // Debug: Show what's missing
+      console.log('Payment validation failed:', {
+        paymentSuccess,
+        paymentReference: paymentReference || 'MISSING',
+        selectedProgram: selectedProgram?.id || 'NOT SELECTED'
+      })
+      
       return
     }
 
@@ -135,21 +168,24 @@ export default function RegisterClientPage() {
       role: "student", // Always student
       password: formData.password,
       confirmPassword: formData.confirmPassword,
-      paymentReference: paymentReference
+      paymentReference: paymentReference,
+      paymentData: paymentData
     }
+
+    console.log('Sending registration data:', registrationData)
 
     try {
       const result = await register(registrationData)
 
       if (result.success) {
         toast({
-          title: "Registration Successful!",
+          title: "Registration Successful! 🎉",
           description: "Your account has been created and payment confirmed. Please check your email to verify your account.",
           variant: "default",
         })
         router.push("/login")
       } else {
-        if (result.error.isRateLimited) {
+        if (result.error?.isRateLimited) {
           setError(result.error)
           toast({
             title: "Rate Limit Exceeded",
@@ -160,7 +196,7 @@ export default function RegisterClientPage() {
           setError(result.error)
           toast({
             title: "Registration Failed",
-            description: result.error.message || "Registration failed. Please try again.",
+            description: result.error?.message || "Registration failed. Please try again.",
             variant: "destructive",
           })
         }
@@ -190,70 +226,118 @@ export default function RegisterClientPage() {
             Student Registration
           </CardTitle>
           <CardDescription>
-            Join NCLEX Keys and start your learning journey
+            {selectedProgram 
+              ? `Join NCLEX Keys - ${selectedProgram.region} Program` 
+              : 'Join NCLEX Keys and get access to all courses with one payment'
+            }
           </CardDescription>
+          
+          {!selectedProgram && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                💡 <strong>Tip:</strong> Select a program from the home page to see specific pricing and features.
+              </p>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
+          {/* Payment Status Indicator */}
+          <div className="mb-6 p-4 rounded-lg border">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-gray-800">Payment Status</h4>
+                <p className="text-sm text-gray-600">
+                  {paymentSuccess 
+                    ? `Payment completed (${paymentReference})` 
+                    : 'Payment required before registration'
+                  }
+                </p>
+              </div>
+              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                paymentSuccess 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-yellow-100 text-yellow-800'
+              }`}>
+                {paymentSuccess ? '✅ Paid' : '⚠️ Pending'}
+              </div>
+            </div>
+            
+            {selectedProgram && (
+              <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Selected Program:</strong> {selectedProgram.region} - {selectedProgram.category}
+                  {selectedProgram.subCategory && ` (${selectedProgram.subCategory.split("WITH ")[1]})`}
+                </p>
+                <p className="text-sm text-blue-800">
+                  <strong>Amount:</strong> {selectedProgram.currency === 'NGN' ? '₦' : selectedProgram.currency === 'USD' ? '$' : selectedProgram.currency === 'GBP' ? '£' : ''}
+                  {selectedProgram.price.toLocaleString()} {selectedProgram.currency} {selectedProgram.per}
+                </p>
+              </div>
+            )}
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Information */}
             <div className="space-y-4">
               <div>
-                <Label htmlFor="fullName" className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Full Name
-                </Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  value={formData.fullName}
-                  onChange={(e) => handleInputChange("fullName", e.target.value)}
-                  placeholder="Enter your full name"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="email" className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  Email Address
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  placeholder="Enter your email address"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="phoneNumber" className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  Phone Number
-                </Label>
-                <Input
-                  id="phoneNumber"
-                  type="tel"
-                  value={formData.phoneNumber}
-                  onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
-                  placeholder="Enter your phone number"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="password" className="flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  Password
-                </Label>
+                <Label htmlFor="fullName">Full Name</Label>
                 <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={formData.fullName}
+                    onChange={(e) => handleInputChange("fullName", e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="email">Email Address</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email address"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="phoneNumber">Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="phoneNumber"
+                    type="tel"
+                    placeholder="Enter your phone number"
+                    value={formData.phoneNumber}
+                    onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
+                    placeholder="Create a password"
                     value={formData.password}
                     onChange={(e) => handleInputChange("password", e.target.value)}
-                    placeholder="Create a strong password"
+                    className="pl-10 pr-10"
                     required
                   />
                   <Button
@@ -273,17 +357,16 @@ export default function RegisterClientPage() {
               </div>
 
               <div>
-                <Label htmlFor="confirmPassword" className="flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  Confirm Password
-                </Label>
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
                     value={formData.confirmPassword}
                     onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-                    placeholder="Confirm your password"
+                    className="pl-10 pr-10"
                     required
                   />
                   <Button
@@ -307,59 +390,90 @@ export default function RegisterClientPage() {
             <div className="border rounded-lg p-4 bg-blue-50">
               <div className="flex items-center gap-2 mb-4">
                 <CreditCard className="h-5 w-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-900">Course Enrollment Payment</h3>
+                <h3 className="font-semibold text-blue-900">
+                  {selectedProgram ? `${selectedProgram.region} Program Payment` : 'Platform Access Payment'}
+                </h3>
               </div>
               
-              {selectedCourse && (
+              {selectedProgram && (
                 <div className="mb-4 p-3 bg-white rounded-lg border">
-                  <h4 className="font-semibold text-gray-800 mb-2">
-                    Selected Program: {selectedCourse.region} - {selectedCourse.category}
-                    {selectedCourse.subCategory && ` (${selectedCourse.subCategory.split("WITH ")[1]})`}
-                  </h4>
-                  <p className="text-lg font-bold text-blue-600">
-                    {getRegistrationCurrency() === 'NGN' ? '₦' : getRegistrationCurrency() === 'USD' ? '$' : '£'}
-                    {getRegistrationFee().toLocaleString()} {getRegistrationCurrency()} {selectedCourse.per}
-                  </p>
+                  <h4 className="font-semibold text-gray-800 mb-2">Selected Program:</h4>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p><strong>Region:</strong> {selectedProgram.region}</p>
+                    <p><strong>Category:</strong> {selectedProgram.category}</p>
+                    {selectedProgram.subCategory && (
+                      <p><strong>Type:</strong> {selectedProgram.subCategory.split("WITH ")[1]}</p>
+                    )}
+                  </div>
                 </div>
               )}
               
+              <div className="mb-4 p-3 bg-white rounded-lg border">
+                <h4 className="font-semibold text-gray-800 mb-2">
+                  What you get:
+                </h4>
+                <ul className="text-sm text-gray-600 space-y-1 mb-3">
+                  <li>✅ Access to ALL NCLEX preparation courses</li>
+                  <li>✅ Comprehensive study materials</li>
+                  <li>✅ Practice exams and assessments</li>
+                  <li>✅ Progress tracking and analytics</li>
+                  <li>✅ Certificate upon completion</li>
+                  <li>✅ Lifetime platform access</li>
+                </ul>
+                <p className="text-lg font-bold text-blue-600">
+                  {selectedProgram?.currency === 'NGN' ? '₦' : selectedProgram?.currency === 'USD' ? '$' : selectedProgram?.currency === 'GBP' ? '£' : ''}
+                  {selectedProgram?.price || registrationFee.toLocaleString()} {selectedProgram?.currency || registrationCurrency}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {selectedProgram ? `${selectedProgram.per} for full platform access` : 'One-time payment for full platform access'}
+                </p>
+              </div>
+              
               {!paymentSuccess ? (
                 <div>
+                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800 font-medium">
+                      ⚠️ Payment Required: You must complete payment before creating your account.
+                    </p>
+                  </div>
+                  
                   <p className="text-sm text-gray-600 mb-4">
-                    Course enrollment requires a one-time payment of{' '}
-                    <strong>
-                      {getRegistrationCurrency() === 'NGN' ? '₦' : getRegistrationCurrency() === 'USD' ? '$' : '£'}
-                      {getRegistrationFee().toLocaleString()} {getRegistrationCurrency()}
-                    </strong>{' '}
-                    to access all course materials and features.
+                    Complete this one-time payment to access the entire NCLEX Keys platform.
                   </p>
                   
                   <div className="space-y-4">
                     <PaystackPaymentForm
                       course={{
-                        id: selectedCourse?.id || 'student-registration',
-                        title: selectedCourse ? `${selectedCourse.region} - ${selectedCourse.category}` : 'Student Registration',
-                        price: getRegistrationFee()
+                        id: selectedProgram?.id || 'student-registration',
+                        title: selectedProgram ? `${selectedProgram.region} Program` : 'NCLEX Keys Platform Access',
+                        price: selectedProgram?.price || registrationFee
                       }}
-                      amount={getRegistrationFee()}
-                      currency={getRegistrationCurrency()}
+                      amount={selectedProgram?.price || registrationFee}
+                      currency={selectedProgram?.currency || registrationCurrency}
                       onSuccess={handlePaymentSuccess}
                       onError={handlePaymentError}
                       className="mb-4"
-                      paymentType="course_enrollment"
+                      paymentType="student_registration"
                       userData={{
                         email: formData.email,
                         full_name: formData.fullName,
                         phone_number: formData.phoneNumber
                       }}
+                      selectedProgram={selectedProgram}
                     />
                   </div>
                 </div>
               ) : (
                 <Alert className="border-green-200 bg-green-50">
-                  <AlertDescription className="text-green-800">
-                    ✅ Payment successful! Reference: {paymentReference}
-                  </AlertDescription>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <AlertDescription className="text-green-800">
+                      ✅ Payment successful! Reference: {paymentReference}
+                    </AlertDescription>
+                  </div>
+                  <p className="text-sm text-green-700 mt-2">
+                    You can now create your account below.
+                  </p>
                 </Alert>
               )}
             </div>
@@ -374,7 +488,12 @@ export default function RegisterClientPage() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing Payment...
+                  Creating Account...
+                </>
+              ) : !paymentSuccess ? (
+                <>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Complete Payment First
                 </>
               ) : (
                 'Create Account'

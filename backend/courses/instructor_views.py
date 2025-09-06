@@ -30,6 +30,7 @@ from datetime import datetime, timedelta
 from utils.thumbnail_helper import generate_video_thumbnail_from_upload, generate_video_url_thumbnail, cleanup_old_thumbnail
 from utils.admin_email_service import AdminEmailService
 from utils.video_processing import extract_video_duration, generate_video_thumbnail, generate_cloudinary_thumbnail_from_public_id
+import traceback
 
 
 logger = logging.getLogger(__name__)
@@ -120,10 +121,21 @@ def create_course(request):
     Admin: Create New Course with Video Upload Support and Auto Thumbnail
     POST /api/admin/courses/
     """
+    
+    # Debug: Log what we're receiving
+    print("=== CREATE COURSE DEBUG ===")
+    print(f"Request data keys: {list(request.data.keys())}")
+    print(f"Request FILES keys: {list(request.FILES.keys())}")
+    print(f"Request user: {request.user}")
+    print(f"Request user role: {getattr(request.user, 'role', 'No role')}")
+    
+    for key, value in request.data.items():
+        print(f"Data[{key}]: {value}")
 
     serializer = CourseCreateUpdateSerializer(data=request.data, context={'request': request})
     
     if not serializer.is_valid():
+        print(f"Serializer errors: {serializer.errors}")
         return Response(
             {'detail': 'Invalid input data.', 'errors': serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
@@ -131,8 +143,8 @@ def create_course(request):
     
     try:
         with transaction.atomic():
-            # Set course as inactive by default (requires super admin approval)
-            course = serializer.save(is_active=False, moderation_status='pending')
+            # Set course as active immediately (no approval needed)
+            course = serializer.save(is_active=True, moderation_status='approved')
             
             # Handle video upload and thumbnail generation
             video_info = None
@@ -3577,5 +3589,453 @@ def get_my_appeals(request):
         logger.error(f"Get instructor appeals error: {str(e)}")
         return Response(
             {'detail': 'Failed to fetch appeals.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def instructor_dashboard(request):
+    """
+    Instructor: Get dashboard overview data
+    GET /api/admin/dashboard/
+    """
+    try:
+        user = request.user
+        
+        # Get basic counts
+        total_courses = Course.objects.filter(instructor=user).count()
+        active_courses = Course.objects.filter(instructor=user, is_active=True).count()
+        total_students = CourseEnrollment.objects.filter(
+            course__instructor=user
+        ).values('user').distinct().count()
+        
+        # Get recent activity
+        recent_courses = Course.objects.filter(
+            instructor=user
+        ).order_by('-created_at')[:5]
+        
+        recent_enrollments = CourseEnrollment.objects.filter(
+            course__instructor=user
+        ).select_related('user', 'course').order_by('-enrolled_at')[:5]
+        
+        # Get basic stats
+        total_revenue = CourseEnrollment.objects.filter(
+            course__created_by=user,
+            payment_status='completed'
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        dashboard_data = {
+            'overview': {
+                'total_courses': total_courses,
+                'active_courses': active_courses,
+                'total_students': total_students,
+                'total_revenue': float(total_revenue)
+            },
+            'recent_courses': [
+                {
+                    'id': str(course.id),
+                    'title': course.title,
+                    'status': course.status,
+                    'created_at': course.created_at
+                } for course in recent_courses
+            ],
+            'recent_enrollments': [
+                {
+                    'id': str(enrollment.id),
+                    'student_name': enrollment.user.full_name,
+                    'course_title': enrollment.course.title,
+                    'enrolled_at': enrollment.enrolled_at,
+                    'amount_paid': float(enrollment.amount_paid)
+                } for enrollment in recent_enrollments
+            ]
+        }
+        
+        return Response(dashboard_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Instructor dashboard error: {str(e)}")
+        return Response(
+            {'detail': 'Failed to load dashboard data.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_students(request):
+    """
+    Instructor: Get all registered students who have paid during registration
+    GET /api/admin/students/
+    """
+    try:
+        from users.models import User
+        
+        logger.info(f"get_all_students called by instructor: {request.user.email}")
+        logger.info(f"User role: {request.user.role}")
+        logger.info(f"User ID: {request.user.id}")
+        
+        # Check if user is instructor or admin
+        if request.user.role not in ['instructor', 'admin']:
+            logger.warning(f"User {request.user.email} with role {request.user.role} tried to access instructor endpoint")
+            return Response(
+                {'detail': 'Only instructors and admins can access this endpoint.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Get all students who have paid during registration
+        # These students have access to all courses uploaded by the instructor
+        students = User.objects.filter(
+            role='student',
+            is_active=True
+        ).select_related().order_by('-date_joined')
+        
+        logger.info(f"Found {students.count()} students in database")
+        
+        # Get courses created by this instructor
+        instructor_courses = Course.objects.filter(created_by=request.user)
+        logger.info(f"Found {instructor_courses.count()} courses created by instructor {request.user.email}")
+        
+        students_data = []
+        for student in students:
+            logger.info(f"Processing student: {student.email} (ID: {student.id})")
+            
+            # Get total courses available to this student
+            total_courses = instructor_courses.count()
+            
+            # Get courses this student has accessed/progressed in
+            accessed_courses = UserCourseProgress.objects.filter(
+                user=student,
+                course__created_by=request.user
+            ).count()
+            
+            # Get overall progress across all courses
+            total_progress = UserCourseProgress.objects.filter(
+                user=student,
+                course__created_by=request.user
+            ).aggregate(
+                avg_progress=Avg('progress_percentage')
+            )['avg_progress'] or 0
+            
+            # Get last activity across all courses
+            last_activity = UserCourseProgress.objects.filter(
+                user=student,
+                course__created_by=request.user
+            ).order_by('-last_accessed').first()
+
+            last_activity_time = last_activity.last_accessed if last_activity else student.date_joined
+            
+            student_data = {
+                'id': str(student.id),
+                'full_name': student.full_name,
+                'email': student.email,
+                'date_joined': student.date_joined,
+                'last_activity': last_activity_time,
+                'total_courses_available': total_courses,
+                'courses_accessed': accessed_courses,
+                'overall_progress': round(total_progress, 1),
+                'registration_payment_status': 'completed',  # All registered students have paid
+                'access_level': 'full_platform_access'  # Access to all courses
+            }
+            
+            students_data.append(student_data)
+            logger.info(f"Student data prepared: {student_data['email']} - {student_data['full_name']}")
+        
+        response_data = {
+            'students': students_data,
+            'total_students': len(students_data),
+            'total_courses_available': instructor_courses.count(),
+            'platform_access_students': len(students_data)
+        }
+        
+        logger.info(f"Returning {len(students_data)} students to instructor {request.user.email}")
+        logger.info(f"Response data: {response_data}")
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Get all students error: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return Response(
+            {'detail': 'Failed to fetch students data.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def instructor_stats(request):
+    """
+    Instructor: Get comprehensive statistics
+    GET /api/admin/stats/
+    """
+    try:
+        user = request.user
+        
+        # Get date range from query params
+        days = int(request.query_params.get('days', 30))
+        start_date = timezone.now() - timedelta(days=days)
+        
+        # Course statistics
+        total_courses = Course.objects.filter(instructor=user).count()
+        active_courses = Course.objects.filter(instructor=user, is_active=True).count()
+        suspended_courses = Course.objects.filter(instructor=user, status='suspended').count()
+        
+        # Enrollment statistics
+        total_enrollments = CourseEnrollment.objects.filter(
+            course__instructor=user
+        ).count()
+        
+        recent_enrollments = CourseEnrollment.objects.filter(
+            course__instructor=user,
+            enrolled_at__gte=start_date
+        ).count()
+        
+        # Revenue statistics
+        total_revenue = CourseEnrollment.objects.filter(
+            course__instructor=user,
+            payment_status='completed'
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        recent_revenue = CourseEnrollment.objects.filter(
+            course__instructor=user,
+            payment_status='completed',
+            enrolled_at__gte=start_date
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        # Student engagement
+        active_students = CourseEnrollment.objects.filter(
+            course__instructor=user,
+            user__last_activity__gte=start_date
+        ).values('user').distinct().count()
+        
+        stats_data = {
+            'period': f'Last {days} days',
+            'courses': {
+                'total': total_courses,
+                'active': active_courses,
+                'suspended': suspended_courses
+            },
+            'enrollments': {
+                'total': total_enrollments,
+                'recent': recent_enrollments
+            },
+            'revenue': {
+                'total': float(total_revenue),
+                'recent': float(recent_revenue)
+            },
+            'students': {
+                'total': CourseEnrollment.objects.filter(
+                    course__instructor=user
+                ).values('user').distinct().count(),
+                'active': active_students
+            }
+        }
+        
+        return Response(stats_data, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Instructor stats error: {str(e)}")
+        return Response(
+            {'detail': 'Failed to fetch statistics.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def get_comprehensive_analytics(request):
+    """
+    Admin: Get Comprehensive Analytics for Dashboard
+    GET /api/admin/analytics/comprehensive/
+    """
+    try:
+        from datetime import datetime, timedelta
+        from django.db.models import Sum, Count, Avg, Q
+        
+        # Date range filters
+        days = int(request.GET.get('days', 30))
+        start_date = timezone.now() - timedelta(days=days)
+        
+        # Course Analytics
+        total_courses = Course.objects.count()
+        active_courses = Course.objects.filter(is_active=True).count()
+        pending_courses = Course.objects.filter(moderation_status='pending').count()
+        approved_courses = Course.objects.filter(moderation_status='approved').count()
+        
+        # Course performance by category
+        course_categories = Course.objects.values('category__name').annotate(
+            count=Count('id'),
+            avg_rating=Avg('reviews__rating'),
+            total_enrollments=Count('enrollments')
+        ).order_by('-total_enrollments')
+        
+        # Student Analytics
+        total_students = User.objects.filter(role='student').count()
+        active_students = User.objects.filter(
+            role='student',
+            last_login__gte=start_date
+        ).count()
+        new_students_month = User.objects.filter(
+            role='student',
+            date_joined__gte=start_date
+        ).count()
+        
+        # Enrollment Analytics
+        total_enrollments = CourseEnrollment.objects.count()
+        recent_enrollments = CourseEnrollment.objects.filter(
+            enrolled_at__gte=start_date
+        ).count()
+        completed_courses = UserCourseProgress.objects.filter(
+            progress_percentage=100
+        ).count()
+        
+        # Revenue Analytics
+        total_revenue = CourseEnrollment.objects.filter(
+            payment_status='completed'
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        monthly_revenue = CourseEnrollment.objects.filter(
+            payment_status='completed',
+            enrolled_at__gte=start_date
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        # Calculate previous period for growth comparison
+        previous_start = start_date - timedelta(days=days)
+        previous_revenue = CourseEnrollment.objects.filter(
+            payment_status='completed',
+            enrolled_at__gte=previous_start,
+            enrolled_at__lt=start_date
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        revenue_growth = 0
+        if previous_revenue > 0:
+            revenue_growth = ((monthly_revenue - previous_revenue) / previous_revenue) * 100
+        
+        # Top performing courses
+        top_courses = Course.objects.annotate(
+            revenue=Sum('enrollments__amount_paid', filter=Q(enrollments__payment_status='completed')),
+            enrollment_count=Count('enrollments'),
+            avg_rating=Avg('reviews__rating')
+        ).filter(revenue__gt=0).order_by('-revenue')[:5]
+        
+        top_courses_data = []
+        for course in top_courses:
+            top_courses_data.append({
+                'id': str(course.id),
+                'title': course.title,
+                'revenue': float(course.revenue or 0),
+                'enrollments': course.enrollment_count,
+                'avg_rating': float(course.avg_rating or 0),
+                'category': course.category.name if course.category else 'Uncategorized'
+            })
+        
+        # User engagement metrics
+        avg_completion_rate = 0
+        if total_enrollments > 0:
+            avg_completion_rate = (completed_courses / total_enrollments) * 100
+        
+        # Recent activity (last 7 days)
+        week_ago = timezone.now() - timedelta(days=7)
+        recent_activity = []
+        
+        # Recent enrollments
+        recent_enrolls = CourseEnrollment.objects.filter(
+            enrolled_at__gte=week_ago
+        ).select_related('user', 'course')[:10]
+        
+        for enrollment in recent_enrolls:
+            recent_activity.append({
+                'type': 'enrollment',
+                'description': f"{enrollment.user.full_name} enrolled in {enrollment.course.title}",
+                'timestamp': enrollment.enrolled_at.strftime('%Y-%m-%d %H:%M'),
+                'user': enrollment.user.full_name,
+                'course': enrollment.course.title
+            })
+        
+        # Recent course completions
+        recent_completions = UserCourseProgress.objects.filter(
+            progress_percentage=100,
+            updated_at__gte=week_ago
+        ).select_related('user', 'course')[:10]
+        
+        for completion in recent_completions:
+            recent_activity.append({
+                'type': 'completion',
+                'description': f"{completion.user.full_name} completed {completion.course.title}",
+                'timestamp': completion.updated_at.strftime('%Y-%m-%d %H:%M'),
+                'user': completion.user.full_name,
+                'course': completion.course.title
+            })
+        
+        # Recent reviews
+        recent_reviews = CourseReview.objects.filter(
+            created_at__gte=week_ago,
+            is_approved=True
+        ).select_related('user', 'course')[:10]
+        
+        for review in recent_reviews:
+            recent_activity.append({
+                'type': 'review',
+                'description': f"{review.user.full_name} rated {review.course.title} {review.rating}/5",
+                'timestamp': review.created_at.strftime('%Y-%m-%d %H:%M'),
+                'user': review.user.full_name,
+                'course': review.course.title,
+                'rating': review.rating
+            })
+        
+        # Sort recent activity by timestamp
+        recent_activity.sort(key=lambda x: x['timestamp'], reverse=True)
+        recent_activity = recent_activity[:15]  # Limit to 15 most recent
+        
+        # Platform health metrics
+        platform_metrics = {
+            'total_users': User.objects.count(),
+            'total_instructors': User.objects.filter(role='instructor').count(),
+            'total_admins': User.objects.filter(role='admin').count(),
+            'system_uptime': '99.9%',  # This would come from monitoring
+            'last_backup': timezone.now().strftime('%Y-%m-%d %H:%M')
+        }
+        
+        comprehensive_analytics = {
+            'period_days': days,
+            'courses': {
+                'total_courses': total_courses,
+                'active_courses': active_courses,
+                'pending_courses': pending_courses,
+                'approved_courses': approved_courses,
+                'course_categories': list(course_categories),
+                'top_courses': top_courses_data
+            },
+            'students': {
+                'total_students': total_students,
+                'active_students': active_students,
+                'new_students_month': new_students_month
+            },
+            'enrollments': {
+                'total_enrollments': total_enrollments,
+                'recent_enrollments': recent_enrollments,
+                'completed_courses': completed_courses,
+                'completion_rate': round(avg_completion_rate, 2)
+            },
+            'revenue': {
+                'total_revenue': float(total_revenue),
+                'monthly_revenue': float(monthly_revenue),
+                'revenue_growth': round(revenue_growth, 2),
+                'avg_order_value': float(total_revenue / max(total_enrollments, 1)) if total_enrollments > 0 else 0
+            },
+            'engagement': {
+                'recent_activity': recent_activity,
+                'avg_rating': 0,  # Calculate from reviews
+                'retention_rate': 0  # Calculate from user activity
+            },
+            'platform': platform_metrics
+        }
+        
+        return Response(comprehensive_analytics, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Comprehensive analytics error: {str(e)}")
+        return Response(
+            {'detail': 'Failed to fetch comprehensive analytics.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

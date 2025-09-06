@@ -257,7 +257,7 @@ export function AboutSchoolSection() {
                     </Link>
                   </motion.div>
             </motion.div>
-          </div>
+        </div>
         </motion.div>
       </div>
     </section>

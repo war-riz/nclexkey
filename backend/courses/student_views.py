@@ -101,18 +101,13 @@ def list_courses(request):
         # Serialize data
         serializer = CourseSerializer(page_obj.object_list, many=True)
         
-        # Add user enrollment status if authenticated
+        # Since students paid during registration, they have access to all courses
         courses_data = serializer.data
         if request.user.is_authenticated:
-            user_enrollments = set(
-                CourseEnrollment.objects.filter(
-                    user=request.user,
-                    is_active=True
-                ).values_list('course_id', flat=True)
-            )
-            
             for course in courses_data:
-                course['is_enrolled'] = course['id'] in user_enrollments
+                course['is_enrolled'] = True  # All students have access to all courses
+                course['price'] = 0  # No additional cost - already paid during registration
+                course['access_level'] = 'full_access'  # Full access to all courses
         
         response_data = {
             'courses': courses_data,
@@ -160,22 +155,34 @@ def get_course_detail(request, course_id):
         serializer = CourseSerializer(course)
         data = serializer.data
         
-        # Add enrollment info if user is authenticated
+        # Since students paid during registration, they have access to all courses
         if request.user.is_authenticated:
+            # Get or create progress for this student
             try:
-                enrollment = CourseEnrollment.objects.get(user=request.user, course=course)
                 progress = UserCourseProgress.objects.get(user=request.user, course=course)
+            except UserCourseProgress.DoesNotExist:
+                # Create progress record if it doesn't exist
+                # Calculate total lessons through sections
+                total_lessons = 0
+                for section in course.sections.filter(is_active=True):
+                    total_lessons += section.lessons.filter(is_active=True).count()
                 
-                data['enrollment_info'] = {
-                    'is_enrolled': True,
-                    'enrollment_date': enrollment.enrolled_at,
-                    'payment_status': enrollment.payment_status,
-                    'progress_percentage': progress.progress_percentage,
-                    'last_accessed': progress.last_accessed,
-                    'is_completed': progress.is_completed()
-                }
-            except (CourseEnrollment.DoesNotExist, UserCourseProgress.DoesNotExist):
-                data['enrollment_info'] = {'is_enrolled': False}
+                progress = UserCourseProgress.objects.create(
+                    user=request.user,
+                    course=course,
+                    progress_percentage=0
+                )
+            
+            data['enrollment_info'] = {
+                'is_enrolled': True,  # All students have access to all courses
+                'enrollment_date': request.user.date_joined,  # Since registration
+                'payment_status': 'completed',  # Payment completed during registration
+                'progress_percentage': progress.progress_percentage,
+                'last_accessed': progress.last_accessed,
+                'is_completed': progress.is_completed(),
+                'access_level': 'full_access',  # Full access to course content
+                'price': 0  # No additional cost - already paid during registration
+            }
         
         # Add reviews
         reviews = course.reviews.filter(is_approved=True).select_related('user')[:10]
@@ -621,21 +628,15 @@ def get_course_content(request, course_id):
     try:
         course = Course.objects.get(id=course_id, is_active=True)
         
-        # Check if user is enrolled
-        try:
-            enrollment = CourseEnrollment.objects.get(
-                user=request.user,
-                course=course,
-                is_active=True,
-                payment_status='completed'
-            )
-        except CourseEnrollment.DoesNotExist:
+        # Check if user is a registered student (has paid during registration)
+        # In our system, all registered students have full platform access
+        if request.user.role != 'student':
             return Response(
-                {'detail': 'You are not enrolled in this course.'},
+                {'detail': 'Only students can access course content.'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Get user progress
+        # Get user progress (create if doesn't exist)
         progress, _ = UserCourseProgress.objects.get_or_create(
             user=request.user,
             course=course,
@@ -658,7 +659,7 @@ def get_course_content(request, course_id):
                 'is_preview': section.is_preview,
                 'total_lessons': section.total_lessons,
                 'total_duration_seconds': section.total_duration_seconds,
-                'is_accessible': section.is_accessible_by_user(request.user),
+                'is_accessible': True,  # All sections are accessible for registered students
                 'completion_rate': section.get_completion_rate(request.user),
                 'lessons': []
             }
@@ -678,14 +679,21 @@ def get_course_content(request, course_id):
                 lesson_data = {
                     'id': str(lesson.id),
                     'title': lesson.title,
+                    'description': lesson.description,
                     'lesson_type': lesson.lesson_type,
                     'order': lesson.order,
                     'duration_seconds': lesson.duration_seconds,
                     'is_preview': lesson.is_preview,
-                    'is_accessible': lesson.is_accessible_by_user(request.user),
+                    'is_accessible': True,  # All lessons are accessible for registered students
                     'is_completed': lesson_progress.is_completed if lesson_progress else False,
                     'watch_percentage': lesson_progress.watch_percentage if lesson_progress else 0,
-                    'last_accessed': lesson_progress.last_accessed if lesson_progress else None
+                    'last_accessed': lesson_progress.last_accessed if lesson_progress else None,
+                    # Add video source information
+                    'video_source': lesson.video_source,
+                    'video_url': lesson.video_url,
+                    'video_file': lesson.video_file.url if lesson.video_file else None,
+                    'video_streaming_url': lesson.video_streaming_url,
+                    'text_content': lesson.text_content
                 }
                 section_data['lessons'].append(lesson_data)
             
@@ -703,7 +711,7 @@ def get_course_content(request, course_id):
             'progress': {
                 'percentage': progress.progress_percentage,
                 'current_section_id': str(progress.current_section_id) if progress.current_section_id else None,
-                'current_lesson_id': str(progress.current_lesson_id) if progress.current_lesson_id else None
+                'current_lesson_id': str(progress.current_section_id) if progress.current_section_id else None
             },
             'sections': sections_data
         }, status=status.HTTP_200_OK)
@@ -1938,31 +1946,70 @@ def get_exam_results(request, attempt_id):
 @permission_classes([IsAuthenticated])
 def user_dashboard(request):
     """
-    Get user dashboard data
-    GET /api/users/dashboard/
+    Student Dashboard: Shows ALL courses uploaded by instructor (students paid during registration)
+    GET /api/student/dashboard/
     """
     try:
         user = request.user
         
-        # Get course enrollments and progress
-        enrollments = CourseEnrollment.objects.filter(
-            user=user,
-            is_active=True
-        ).select_related('course')
+        # Get ALL courses uploaded by the instructor - students have access to everything
+        # since they paid during registration
+        courses = Course.objects.all().select_related(
+            'created_by', 'category'
+        ).prefetch_related('reviews').order_by('-created_at')
         
-        progress_data = UserCourseProgress.objects.filter(user=user).select_related('course')
+        # Since students paid during registration, they have access to all courses
+        # No need to check enrollment status - they can access everything
         
-        # Calculate statistics
-        total_courses = enrollments.count()
-        completed_courses = progress_data.filter(progress_percentage=100).count()
-        in_progress_courses = progress_data.filter(
-            progress_percentage__gt=0,
-            progress_percentage__lt=100
-        ).count()
+        # Prepare course data
+        course_data = []
+        for course in courses:
+            course_info = {
+                'id': course.id,
+                'title': course.title,
+                'description': course.description,
+                'thumbnail': course.thumbnail.url if course.thumbnail else None,
+                'video_url': course.get_video_url(),
+                'course_type': course.course_type,
+                'price': 0,  # No additional cost since they already paid
+                'currency': 'USD',
+                'duration_minutes': course.duration_minutes,
+                'difficulty_level': course.difficulty_level,
+                'category': course.get_category_name(),
+                'is_active': course.is_active,
+                'moderation_status': course.moderation_status,
+                'is_enrolled': True,  # All students have access to all courses
+                'can_access': course.is_active and course.moderation_status == 'approved',
+                'instructor_name': course.created_by.full_name if course.created_by else 'Unknown',
+                'created_at': course.created_at,
+                'total_students': CourseEnrollment.objects.filter(course=course, is_active=True).count(),
+                'average_rating': course.reviews.aggregate(Avg('rating'))['rating__avg'] or 0,
+                'access_level': 'full_access'  # Students have full access to all courses
+            }
+            course_data.append(course_info)
         
-        # Get recent activity
-        recent_progress = progress_data.order_by('-last_accessed')[:5]
-        recent_enrollments = enrollments.order_by('-enrolled_at')[:5]
+        # Get user's progress
+        user_progress = UserCourseProgress.objects.filter(user=user).select_related('course')
+        
+        # Get user's enrolled courses with progress
+        enrolled_progress = []
+        for progress in user_progress:
+            # Calculate total lessons for this course
+            total_lessons = 0
+            for section in progress.course.sections.filter(is_active=True):
+                total_lessons += section.lessons.filter(is_active=True).count()
+            
+            # Calculate completed lessons from sections_completed
+            completed_lessons = len(progress.sections_completed) if progress.sections_completed else 0
+            
+            enrolled_progress.append({
+                'course_id': progress.course.id,
+                'course_title': progress.course.title,
+                'progress_percentage': progress.progress_percentage,
+                'completed_lessons': completed_lessons,
+                'total_lessons': total_lessons,
+                'last_accessed': progress.last_accessed
+            })
         
         # Get exam attempts
         recent_attempts = UserExamAttempt.objects.filter(
@@ -1975,30 +2022,34 @@ def user_dashboard(request):
             is_valid=True
         ).select_related('exam', 'exam__course').order_by('-issued_at')
         
-        # Calculate total spent
-        total_spent = enrollments.filter(
-            payment_status='completed'
-        ).aggregate(
-            total=Sum('amount_paid')
-        )['total'] or 0
+        # Since students paid during registration, they have access to all courses
+        # No additional payment needed
         
-        return Response({
+        dashboard_data = {
             'user_info': {
                 'name': user.full_name,
                 'email': user.email,
-                'joined_date': user.date_joined
+                'joined_date': user.date_joined,
+                'payment_status': 'completed',  # Payment completed during registration
+                'access_level': 'full_platform_access'  # Access to all courses
             },
+            'available_courses': course_data,
+            'enrolled_courses': enrolled_progress,
             'statistics': {
-                'total_courses': total_courses,
-                'completed_courses': completed_courses,
-                'in_progress_courses': in_progress_courses,
-                'completion_rate': round((completed_courses / total_courses * 100), 2) if total_courses > 0 else 0,
-                'total_spent': float(total_spent),
-                'certificates_earned': certificates.count()
+                'total_courses_available': len([c for c in course_data if c['can_access']]),
+                'total_courses_pending': len([c for c in course_data if c['moderation_status'] == 'pending']),
+                'total_courses_accessible': len([c for c in course_data if c['is_active']]),
+                'completed_courses': user_progress.filter(progress_percentage=100).count(),
+                'in_progress_courses': user_progress.filter(
+                    progress_percentage__gt=0,
+                    progress_percentage__lt=100
+                ).count(),
+                'total_spent': 0,  # No additional cost - already paid during registration
+                'certificates_earned': certificates.count(),
+                'platform_access': 'full_access'  # Students have access to entire platform
             },
             'recent_activity': {
-                'course_progress': UserCourseProgressSerializer(recent_progress, many=True).data,
-                'enrollments': CourseEnrollmentSerializer(recent_enrollments, many=True).data,
+                'course_progress': UserCourseProgressSerializer(user_progress.order_by('-last_accessed')[:5], many=True).data,
                 'exam_attempts': UserExamAttemptSerializer(recent_attempts, many=True).data
             },
             'certificates': [
@@ -2012,7 +2063,9 @@ def user_dashboard(request):
                 }
                 for cert in certificates
             ]
-        }, status=status.HTTP_200_OK)
+        }
+        
+        return Response(dashboard_data, status=status.HTTP_200_OK)
     
     except Exception as e:
         logger.error(f"User dashboard error: {str(e)}")
@@ -2153,5 +2206,126 @@ def get_recommendations(request):
         logger.error(f"Get recommendations error: {str(e)}")
         return Response(
             {'detail': 'Failed to fetch recommendations.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_student_analytics(request):
+    """
+    Get comprehensive analytics for student dashboard
+    GET /api/courses/student/analytics/
+    """
+    try:
+        user = request.user
+        
+        # Get user's enrolled courses
+        enrolled_courses = CourseEnrollment.objects.filter(
+            user=user,
+            is_active=True
+        ).select_related('course')
+        
+        # Get user's course progress
+        course_progress = UserCourseProgress.objects.filter(
+            user=user
+        ).select_related('course')
+        
+        # Calculate statistics
+        total_courses = enrolled_courses.count()
+        completed_courses = course_progress.filter(progress_percentage=100).count()
+        in_progress_courses = course_progress.filter(
+            progress_percentage__gt=0,
+            progress_percentage__lt=100
+        ).count()
+        not_started_courses = course_progress.filter(progress_percentage=0).count()
+        
+        # Calculate completion rate
+        completion_rate = 0
+        if total_courses > 0:
+            completion_rate = (completed_courses / total_courses) * 100
+        
+        # Calculate total study hours
+        total_study_hours = course_progress.aggregate(
+            total=Sum('total_study_time_minutes', default=0)
+        )['total'] or 0
+        total_study_hours = round(total_study_hours / 60, 1)  # Convert minutes to hours
+        
+        # Calculate average score
+        exam_attempts = UserExamAttempt.objects.filter(
+            user=user,
+            status='completed'
+        )
+        average_score = 0
+        if exam_attempts.exists():
+            average_score = round(exam_attempts.aggregate(
+                avg=Avg('score_percentage')
+            )['avg'] or 0, 1)
+        
+        # Get recent activity
+        recent_activity = []
+        
+        # Recent course progress updates
+        recent_progress = course_progress.filter(
+            updated_at__gte=timezone.now() - timezone.timedelta(days=7)
+        ).order_by('-updated_at')[:5]
+        
+        for progress in recent_progress:
+            recent_activity.append({
+                'type': 'course_progress',
+                'course_title': progress.course.title,
+                'progress_percentage': progress.progress_percentage,
+                'last_accessed': progress.updated_at,
+                'icon': 'PlayCircle'
+            })
+        
+        # Recent exam attempts
+        recent_exams = exam_attempts.filter(
+            completed_at__gte=timezone.now() - timezone.timedelta(days=7)
+        ).order_by('-completed_at')[:5]
+        
+        for exam in recent_exams:
+            recent_activity.append({
+                'type': 'exam_attempt',
+                'course_title': exam.exam.course.title if hasattr(exam.exam, 'course') else 'Unknown Course',
+                'exam_title': exam.exam.title,
+                'score': exam.score_percentage,
+                'last_accessed': exam.completed_at,
+                'icon': 'ClipboardCheck'
+            })
+        
+        # Sort recent activity by date
+        recent_activity.sort(key=lambda x: x['last_accessed'], reverse=True)
+        
+        # Get course recommendations
+        recommendations = get_recommendations(request)
+        recommendations_data = []
+        if recommendations.status_code == 200:
+            recommendations_data = recommendations.data.get('recommendations', [])
+        
+        # Get upcoming deadlines (if any)
+        upcoming_deadlines = []
+        # This could include exam dates, assignment due dates, etc.
+        
+        return Response({
+            'statistics': {
+                'total_courses': total_courses,
+                'completed_courses': completed_courses,
+                'in_progress_courses': in_progress_courses,
+                'not_started_courses': not_started_courses,
+                'completion_rate': round(completion_rate, 1),
+                'study_hours': total_study_hours,
+                'average_score': average_score
+            },
+            'recent_activity': recent_activity,
+            'recommendations': recommendations_data[:5],
+            'upcoming_deadlines': upcoming_deadlines,
+            'last_updated': timezone.now()
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Get student analytics error: {str(e)}")
+        return Response(
+            {'detail': 'Failed to fetch analytics.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

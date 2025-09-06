@@ -2,12 +2,13 @@
 
 // IMPORTANT: Ensure this URL points to your running backend API.
 // If your backend is deployed, update NEXT_PUBLIC_API_BASE_URL in your Vercel project settings
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL = "http://localhost:8000";  // Force localhost for testing
+console.log('API_BASE_URL initialized as:', API_BASE_URL);
 const INSTRUCTOR_API_BASE_URL = `${API_BASE_URL}/api/admin`
 const STUDENT_API_BASE_URL = `${API_BASE_URL}/api/courses`
 
-// Nigerian Bank and Payment Configuration
-const PAYSTACK_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
+// Nigerian Bank and Payment Configuration - LIVE CREDENTIALS
+const PAYSTACK_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_live_9afe0ff4d8f81a67b5e799bd12a30551da1b0e19';
 const FLUTTERWAVE_PUBLIC_KEY = process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY;
 const VIDEO_STREAMING_URL = process.env.NEXT_PUBLIC_VIDEO_STREAMING_URL || `${API_BASE_URL}/media/videos`;
 
@@ -15,10 +16,28 @@ const VIDEO_STREAMING_URL = process.env.NEXT_PUBLIC_VIDEO_STREAMING_URL || `${AP
 async function handleResponse(response) {
   const contentType = response.headers.get("content-type")
   let data = {}
-  if (contentType && contentType.includes("application/json")) {
-    data = await response.json()
-  } else {
-    data = await response.text()
+  
+  try {
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json()
+    } else {
+      data = await response.text()
+    }
+    
+    console.log("Response data:", data)
+    console.log("Response status:", response.status)
+    
+  } catch (error) {
+    console.error("Error parsing response:", error)
+    // Return a safe default response
+    return {
+      success: false,
+      error: {
+        message: "Invalid response format from server",
+        status: response.status,
+        details: "Server returned invalid JSON or text"
+      }
+    }
   }
 
   if (!response.ok) {
@@ -52,6 +71,8 @@ async function handleResponse(response) {
       success: false,
       error: {
         message: errorMessage,
+        detail: data.detail,
+        errors: data.errors, // Preserve the detailed errors structure
         status: response.status,
         isRateLimited,
         isLocked,
@@ -64,16 +85,25 @@ async function handleResponse(response) {
   }
   
   // Store tokens if they exist in the response (for login and refresh)
+  console.log("Storing tokens from response:", { access_token: data.access_token, token: data.token, refresh_token: data.refresh_token })
+  
   if (data.access_token) {
     localStorage.setItem("access_token", data.access_token)
+    console.log("Stored access_token")
+  }
+  if (data.token) {
+    localStorage.setItem("access_token", data.token)  // Store as access_token for consistency
+    console.log("Stored token as access_token")
   }
   if (data.refresh_token) {
     localStorage.setItem("refresh_token", data.refresh_token)
+    console.log("Stored refresh_token")
   }
   
   // Store user data if provided in login response
   if (data.user) {
     localStorage.setItem("user_data", JSON.stringify(data.user))
+    console.log("Stored user data")
   }
   
   return { success: true, data }
@@ -81,11 +111,22 @@ async function handleResponse(response) {
 
 // Generic API request function with token handling and automatic refresh
 export async function apiRequest(url, options = {}) {
+  console.log("=== apiRequest function START ===")
+  console.log("URL:", url)
+  console.log("Options:", options)
+  
   const token = localStorage.getItem("access_token")
+  console.log("API Request - Token from localStorage:", token ? "EXISTS" : "MISSING")
+  
+  // Skip auth header for login/register requests
+  const skipAuth = options.skipAuth || url.includes('/auth/login') || url.includes('/auth/register')
+  
   const headers = {
     ...options.headers,
-    ...(token && { Authorization: `Bearer ${token}` }),
+    ...(token && !skipAuth && { Authorization: `Bearer ${token}` }),
   }
+  
+  console.log("API Request - Final headers:", headers)
 
   // If body is JSON, set Content-Type
   if (options.body && !(options.body instanceof FormData) && !headers["Content-Type"]) {
@@ -93,27 +134,35 @@ export async function apiRequest(url, options = {}) {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
+    console.log('Making API request to:', `${API_BASE_URL}${url}`)
+    console.log('API_BASE_URL:', API_BASE_URL)
+    console.log('URL:', url)
+    console.log('Options:', options)
+    console.log('Headers:', headers)
+    
+    // Check if URL is already a full URL (starts with http)
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`
+    const response = await fetch(fullUrl, {
       ...options,
       headers,
     });
 
     // If token is expired (401), try to refresh it
-    if (response.status === 401 && token) {
+    if (response.status === 401 && token && !skipAuth) {
       const refreshResult = await refreshToken()
       if (refreshResult.success) {
         // Retry the original request with new token
         const newToken = localStorage.getItem("access_token")
         const newHeaders = {
           ...options.headers,
-          ...(newToken && { Authorization: `Bearer ${newToken}` }),
+          ...(newToken && !skipAuth && { Authorization: `Bearer ${newToken}` }),
         }
         
         if (options.body && !(options.body instanceof FormData) && !newHeaders["Content-Type"]) {
           newHeaders["Content-Type"] = "application/json"
         }
 
-        const retryResponse = await fetch(`${API_BASE_URL}${url}`, {
+        const retryResponse = await fetch(fullUrl, {
           ...options,
           headers: newHeaders,
         });
@@ -145,9 +194,10 @@ export async function apiRequest(url, options = {}) {
 // --- AUTHENTICATION ENDPOINTS ---
 
 // 1. User Registration
-export async function register({ email, fullName, phoneNumber, role, password, confirmPassword }) {
-  return apiRequest(`/api/auth/register`, {
+export async function register({ email, fullName, phoneNumber, role, password, confirmPassword, paymentReference, paymentData }) {
+  return apiRequest(`/api/auth/register/`, {
     method: "POST",
+    skipAuth: true, // Don't send existing token for registration
     body: JSON.stringify({
       email,
       full_name: fullName,
@@ -155,6 +205,8 @@ export async function register({ email, fullName, phoneNumber, role, password, c
       role,
       password,
       confirm_password: confirmPassword,
+      payment_reference: paymentReference,
+      payment_data: paymentData,
     }),
   })
 }
@@ -170,8 +222,9 @@ export async function login({ email, password, twoFactorToken = "", backupCode =
     payload.backup_code = backupCode
   }
   
-  return apiRequest(`/api/auth/login`, {
+  return apiRequest(`/api/auth/login/`, {
     method: "POST",
+    skipAuth: true, // Don't send existing token for login
     body: JSON.stringify(payload),
   })
 }
@@ -183,36 +236,44 @@ export async function refreshToken() {
     return { success: false, error: { message: "No refresh token available" } }
   }
   
-  return apiRequest(`/api/auth/refresh`, {
+  return apiRequest(`/api/auth/refresh/`, {
     method: "POST",
+    skipAuth: true, // Don't send access token for refresh
     body: JSON.stringify({ refresh_token: refreshToken }),
   })
 }
 
 // 4. Logout
 export async function logout() {
-  const refreshToken = localStorage.getItem("refresh_token")
-  const result = await apiRequest(`/api/auth/logout`, {
-    method: "POST",
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  })
-  
-  if (result.success) {
-    localStorage.removeItem("access_token")
-    localStorage.removeItem("refresh_token")
-    localStorage.removeItem("user_data")
-  } else {
-    console.error("Logout failed on server, but clearing local tokens.", result.error)
-    localStorage.removeItem("access_token")
-    localStorage.removeItem("refresh_token")
-    localStorage.removeItem("user_data")
+  try {
+    // Try to call backend logout (optional)
+    const refreshToken = localStorage.getItem("refresh_token")
+    if (refreshToken) {
+      await apiRequest(`/api/auth/logout/`, {
+        method: "POST",
+        skipAuth: true, // Don't send access token for logout
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      })
+    }
+  } catch (error) {
+    // Ignore backend logout errors - always clear local tokens
+    console.log("Backend logout failed, but proceeding with local logout")
   }
-  return result
+  
+  // Always clear local tokens regardless of backend response
+  localStorage.removeItem("access_token")
+  localStorage.removeItem("refresh_token")
+  localStorage.removeItem("user_data")
+  
+  return { success: true, message: "Logged out successfully" }
 }
 
 // 5. Logout All Devices
 export async function logoutAllDevices() {
-  const result = await apiRequest(`/api/auth/logout-all`, { method: "POST" })
+  const result = await apiRequest(`/api/auth/logout-all/`, { 
+    method: "POST",
+    skipAuth: true // Don't send access token for logout
+  })
   if (result.success) {
     localStorage.removeItem("access_token")
     localStorage.removeItem("refresh_token")
@@ -223,8 +284,9 @@ export async function logoutAllDevices() {
 
 // 6. Verify Email
 export async function verifyEmail(token) {
-  return apiRequest(`/api/auth/verify-email`, {
+  return apiRequest(`/api/auth/verify-email/`, {
     method: "POST",
+    skipAuth: true, // Don't send existing token for email verification
     body: JSON.stringify({ token }),
   })
 }
@@ -232,156 +294,162 @@ export async function verifyEmail(token) {
 export async function resendVerification(email) {
   return apiRequest(`/api/auth/resend-verification`, {
     method: "POST",
+    skipAuth: true, // Don't send existing token for verification
+    body: JSON.stringify({ email }),
+  })
+}
+
+// 7. Resend Verification Email
+export async function resendVerificationEmail(email) {
+  return apiRequest(`/api/auth/resend-verification/`, {
+    method: "POST",
+    skipAuth: true,
     body: JSON.stringify({ email }),
   })
 }
 
 // 8. Forgot Password
 export async function forgotPassword(email) {
-  return apiRequest(`/api/auth/forgot-password`, {
+  return apiRequest(`/api/auth/forgot-password/`, {
     method: "POST",
+    skipAuth: true,
     body: JSON.stringify({ email }),
   })
 }
 
-// 9. Reset Password Confirmation
-export async function resetPassword(token, newPassword, confirmNewPassword) {
-  return apiRequest(`/api/auth/reset-password/confirm`, {
+// 9. Reset Password
+export async function resetPassword(token, newPassword) {
+  return apiRequest(`/api/auth/reset-password/confirm/`, {
     method: "POST",
-    body: JSON.stringify({
-      token,
-      new_password: newPassword,
-      confirm_new_password: confirmNewPassword,
+    skipAuth: true,
+    body: JSON.stringify({ token, new_password: newPassword }),
+  })
+}
+
+// 10. Change Password
+export async function changePassword(currentPassword, newPassword) {
+  return apiRequest(`/api/auth/change-password/`, {
+    method: "POST",
+    body: JSON.stringify({ 
+      current_password: currentPassword, 
+      new_password: newPassword 
     }),
   })
 }
 
-// 10. Change Password (Authenticated)
-export async function changePassword(currentPassword, newPassword, confirmNewPassword) {
-  return apiRequest(`/api/auth/change-password`, {
-    method: "POST",
-    body: JSON.stringify({
-      current_password: currentPassword,
-      new_password: newPassword,
-      confirm_new_password: confirmNewPassword,
-    }),
-  })
-}
-
-// 11. Get 2FA Status
+// 11. 2FA Status
 export async function get2FAStatus() {
-  return apiRequest(`/api/auth/2fa/status`, { method: "GET" })
+  return apiRequest(`/api/auth/2fa/status/`, { method: "GET" })
 }
 
-// 12. Enable 2FA - Step 1
+// 12. Enable 2FA
 export async function enable2FA() {
-  return apiRequest(`/api/auth/2fa/enable`, { method: "POST" })
+  return apiRequest(`/api/auth/2fa/enable/`, { method: "POST" })
 }
 
-// 13. Enable 2FA - Step 2 (Confirmation)
+// 13. Confirm 2FA
 export async function confirm2FA(token) {
-  return apiRequest(`/api/auth/2fa/confirm`, {
+  return apiRequest(`/api/auth/2fa/confirm/`, {
     method: "POST",
     body: JSON.stringify({ token }),
   })
 }
 
 // 14. Disable 2FA
-export async function disable2FA(password, token) {
-  return apiRequest(`/api/auth/2fa/disable`, {
-    method: "POST",
-    body: JSON.stringify({ password, token }),
-  })
-}
-
-// 15. Generate Backup Codes
-export async function generateBackupCodes() {
-  return apiRequest(`/api/auth/2fa/backup-codes`, { method: "POST" })
-}
-
-// 16. Regenerate Backup Codes
-export async function regenerateBackupCodes(token) {
-  return apiRequest(`/api/auth/2fa/regenerate-backup-codes`, {
-    method: "POST",
-    body: JSON.stringify({ token }),
-  })
-}
-
-// 17. Emergency 2FA Disable
-export async function emergency2FADisable(email, password) {
-  return apiRequest(`/api/auth/2fa/emergency-disable`, {
-    method: "POST",
-    body: JSON.stringify({ email, password }),
-  })
-}
-
-// 18. Get User Profile
-export async function getUserProfile() {
-  return apiRequest(`/api/auth/users/me`, { method: "GET" })
-}
-
-export async function updateUserProfile(profileData) {
-  return apiRequest(`/api/auth/users/me/update`, {
-    method: "PUT",
-    body: JSON.stringify(profileData),
-  })
-}
-
-// 19. Update User Profile
-export async function updateProfile(profileData) {
-  return apiRequest(`/api/auth/users/me/update`, {
-    method: "PUT",
-    body: JSON.stringify(profileData),
-  })
-}
-
-// 20. Upload Profile Picture
-export async function uploadProfilePicture(imageFile) {
-  const formData = new FormData()
-  formData.append("profile_picture", imageFile)
-  
-  return apiRequest(`/api/auth/profile/picture`, {
-    method: "POST",
-    headers: {}, // Remove Content-Type to let browser set it for FormData
-    body: formData,
-  })
-}
-
-// 21. Delete Profile Picture
-export async function deleteProfilePicture() {
-  return apiRequest(`/api/auth/profile/picture/delete`, { method: "DELETE" })
-}
-
-// 22. Get User Sessions
-export async function getUserSessions() {
-  return apiRequest(`/api/auth/sessions`, { method: "GET" })
-}
-
-export async function deleteUserSession(sessionId) {
-  return apiRequest(`/api/auth/sessions/${sessionId}`, { method: "DELETE" })
-}
-
-// 23. Request Account Deletion
-export async function requestAccountDeletion(password) {
-  return apiRequest(`/api/auth/delete-account`, {
-    method: "POST",
-    body: JSON.stringify({ password, confirm_deletion: true }),
-  })
-}
-
-// 24. Cancel Account Deletion
-export async function cancelAccountDeletion(password) {
-  return apiRequest(`/api/auth/cancel-deletion`, {
+export async function disable2FA(password) {
+  return apiRequest(`/api/auth/2fa/disable/`, {
     method: "POST",
     body: JSON.stringify({ password }),
   })
 }
 
-// 25. Delete Account Immediately
-export async function deleteAccountImmediate(password) {
-  return apiRequest(`/api/auth/delete-account-immediate`, {
+// 15. Generate Backup Codes
+export async function generateBackupCodes() {
+  return apiRequest(`/api/auth/2fa/backup-codes/`, { method: "POST" })
+}
+
+// 16. Regenerate Backup Codes
+export async function regenerateBackupCodes(password) {
+  return apiRequest(`/api/auth/2fa/regenerate-backup-codes/`, {
     method: "POST",
-    body: JSON.stringify({ password, confirm_deletion: true }),
+    body: JSON.stringify({ password }),
+  })
+}
+
+// 17. Emergency Disable 2FA
+export async function emergencyDisable2FA(email, backupCode) {
+  return apiRequest(`/api/auth/2fa/emergency-disable/`, {
+    method: "POST",
+    body: JSON.stringify({ email, backup_code: backupCode }),
+  })
+}
+
+// 18. Get User Profile
+export async function getUserProfile() {
+  return apiRequest(`/api/auth/users/me/`, { method: "GET" })
+}
+
+// 19. Update User Profile
+export async function updateUserProfile(updates) {
+  return apiRequest(`/api/auth/users/me/update/`, {
+    method: "PUT",
+    body: JSON.stringify(updates),
+  })
+}
+
+// 20. Update User Profile (PATCH)
+export async function patchUserProfile(updates) {
+  return apiRequest(`/api/auth/users/me/update/`, {
+    method: "PATCH",
+    body: JSON.stringify(updates),
+  })
+}
+
+// 21. Upload Profile Picture
+export async function uploadProfilePicture(file) {
+  const formData = new FormData()
+  formData.append('picture', file)
+  
+  return apiRequest(`/api/auth/profile/picture/`, {
+    method: "POST",
+    body: formData,
+    skipContentType: true, // Let browser set content type for FormData
+  })
+}
+
+// 22. Delete Profile Picture
+export async function deleteProfilePicture() {
+  return apiRequest(`/api/auth/profile/picture/delete/`, { method: "DELETE" })
+}
+
+// 23. Get User Sessions
+export async function getUserSessions() {
+  return apiRequest(`/api/auth/sessions/`, { method: "GET" })
+}
+
+// 24. Delete User Session
+export async function deleteUserSession(sessionId) {
+  return apiRequest(`/api/auth/sessions/${sessionId}/`, { method: "DELETE" })
+}
+
+// 25. Delete Account
+export async function deleteAccount(password, reason = "") {
+  return apiRequest(`/api/auth/delete-account/`, {
+    method: "POST",
+    body: JSON.stringify({ password, reason }),
+  })
+}
+
+// 26. Cancel Account Deletion
+export async function cancelAccountDeletion() {
+  return apiRequest(`/api/auth/cancel-deletion/`, { method: "POST" })
+}
+
+// 27. Immediate Account Deletion
+export async function deleteAccountImmediate(password) {
+  return apiRequest(`/api/auth/delete-account-immediate/`, {
+    method: "POST",
+    body: JSON.stringify({ password }),
   })
 }
 
@@ -509,29 +577,29 @@ export const chatAPI = {
   // Conversations
   getConversations: async (params = {}) => {
     const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`/api/conversations/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
+    return apiRequest(`/api/messaging/conversations/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
   getConversation: async (conversationId) => {
-    return apiRequest(`/api/conversations/${conversationId}/`, { method: "GET" })
+    return apiRequest(`/api/messaging/conversations/${conversationId}/`, { method: "GET" })
   },
 
   createConversation: async (conversationData) => {
-    return apiRequest(`/api/conversations/`, {
+    return apiRequest(`/api/messaging/conversations/create/`, {
       method: "POST",
       body: JSON.stringify(conversationData),
     })
   },
 
   updateConversation: async (conversationId, updateData) => {
-    return apiRequest(`/api/conversations/${conversationId}/`, {
+    return apiRequest(`/api/messaging/conversations/${conversationId}/`, {
       method: "PUT",
       body: JSON.stringify(updateData),
     })
   },
 
   deleteConversation: async (conversationId) => {
-    return apiRequest(`/api/conversations/${conversationId}/`, {
+    return apiRequest(`/api/messaging/conversations/${conversationId}/`, {
       method: "DELETE",
     })
   },
@@ -539,106 +607,104 @@ export const chatAPI = {
   // Messages
   getMessages: async (conversationId, params = {}) => {
     const queryString = new URLSearchParams(params).toString()
-    return apiRequest(`/api/conversations/${conversationId}/messages/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
+    return apiRequest(`/api/messaging/conversations/${conversationId}/messages/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
   sendMessage: async (conversationId, messageData) => {
-    return apiRequest(`/api/conversations/${conversationId}/messages/`, {
+    return apiRequest(`/api/messaging/conversations/${conversationId}/send/`, {
       method: "POST",
       body: JSON.stringify(messageData),
     })
   },
 
   updateMessage: async (messageId, messageData) => {
-    return apiRequest(`/api/messages/${messageId}/`, {
+    return apiRequest(`/api/messaging/messages/${messageId}/`, {
       method: "PUT",
       body: JSON.stringify(messageData),
     })
   },
 
   deleteMessage: async (messageId) => {
-    return apiRequest(`/api/messages/${messageId}/`, {
+    return apiRequest(`/api/messaging/messages/${messageId}/`, {
       method: "DELETE",
     })
   },
 
   // Message actions
   markMessageRead: async (messageId) => {
-    return apiRequest(`/api/messages/${messageId}/read/`, {
+    return apiRequest(`/api/messaging/messages/${messageId}/read/`, {
       method: "POST",
     })
   },
 
   markConversationRead: async (conversationId) => {
-    return apiRequest(`/api/conversations/${conversationId}/read/`, {
+    return apiRequest(`/api/messaging/conversations/${conversationId}/read/`, {
       method: "POST",
     })
   },
 
   // User status
   getUserStatus: async () => {
-    return apiRequest(`/api/user/status/`, { method: "GET" })
+    return apiRequest(`/api/messaging/user/status/`, { method: "GET" })
   },
 
   updateUserStatus: async (statusData) => {
-    return apiRequest(`/api/user/status/`, {
+    return apiRequest(`/api/messaging/user/status/`, {
       method: "PUT",
       body: JSON.stringify(statusData),
     })
   },
 
   setTypingStatus: async (conversationId, isTyping) => {
-    return apiRequest(`/api/conversations/${conversationId}/typing/`, {
+    return apiRequest(`/api/messaging/conversations/${conversationId}/typing/`, {
       method: "POST",
       body: JSON.stringify({ is_typing: isTyping }),
     })
   },
 
   getOnlineUsers: async (conversationId) => {
-    return apiRequest(`/api/conversations/${conversationId}/online-users/`, { method: "GET" })
+    return apiRequest(`/api/messaging/conversations/${conversationId}/online-users/`, { method: "GET" })
   },
 
   // Conversation invitations
   getInvitations: async () => {
-    return apiRequest(`/api/invitations/`, { method: "GET" })
+    return apiRequest(`/api/messaging/invitations/`, { method: "GET" })
   },
 
   createInvitation: async (invitationData) => {
-    return apiRequest(`/api/invitations/`, {
+    return apiRequest(`/api/messaging/invitations/`, {
       method: "POST",
       body: JSON.stringify(invitationData),
     })
   },
 
-  respondToInvitation: async (invitationId, action) => {
-    return apiRequest(`/api/invitations/${invitationId}/respond/`, {
+  acceptInvitation: async (invitationId) => {
+    return apiRequest(`/api/messaging/invitations/${invitationId}/accept/`, {
       method: "POST",
-      body: JSON.stringify({ action }),
     })
   },
 
-  // Utility endpoints
+  declineInvitation: async (invitationId) => {
+    return apiRequest(`/api/messaging/invitations/${invitationId}/decline/`, {
+      method: "POST",
+    })
+  },
+
+  // Unread count
   getUnreadCount: async () => {
-    return apiRequest(`/api/unread-count/`, { method: "GET" })
+    return apiRequest(`/api/messaging/unread-count/`, { method: "GET" })
   },
 
-  searchConversations: async (query, params = {}) => {
-    const queryString = new URLSearchParams({ q: query, ...params }).toString()
-    return apiRequest(`/api/conversations/search/?${queryString}`, { method: "GET" })
+  // Legacy endpoints (keeping for backward compatibility)
+  getMessagesLegacy: async (params = {}) => {
+    const queryString = new URLSearchParams(params).toString()
+    return apiRequest(`/api/messaging/messages/${queryString ? `?${queryString}` : ""}`, { method: "GET" })
   },
 
-  // Special conversation creation
-  createStudentInstructorConversation: async (courseId, subject = '') => {
-    return apiRequest(`/api/conversations/student-instructor/`, {
+  sendMessageLegacy: async (messageData) => {
+    return apiRequest(`/api/messaging/send/`, {
       method: "POST",
-      body: JSON.stringify({ course_id: courseId, subject }),
-    })
-  },
-
-  createSupportConversation: async (conversationType, subject = '') => {
-    return apiRequest(`/api/conversations/support/`, {
-      method: "POST",
-      body: JSON.stringify({ conversation_type: conversationType, subject }),
+      body: JSON.stringify(messageData),
     })
   },
 }
@@ -754,6 +820,10 @@ export async function getUserDashboard() {
   return apiRequest(`${STUDENT_API_BASE_URL}/dashboard/`, { method: "GET" })
 }
 
+export async function getStudentAnalytics() {
+  return apiRequest(`${STUDENT_API_BASE_URL}/student/analytics/`, { method: "GET" })
+}
+
 // --- INSTRUCTOR API ENDPOINTS (from previous turn) ---
 export const instructorAPI = {
   // Video Management
@@ -794,7 +864,7 @@ export const instructorAPI = {
         }
       }
     })
-    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/`, {
+    return apiRequest(`${INSTRUCTOR_API_BASE_URL}/courses/create/`, {
       method: "POST",
       headers: {},
       body: formData,
@@ -2276,6 +2346,19 @@ export const videoAPI = {
     return `${VIDEO_STREAMING_URL}/${videoId}/${videoId}.m3u8`
   },
   
+  // Get Cloudinary video URL (for uploaded videos)
+  getCloudinaryVideo: (cloudinaryPublicId, quality = 'auto') => {
+    if (!cloudinaryPublicId) return null
+    // Transform Cloudinary URL for better quality and format
+    return `https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dvmse886w'}/video/upload/q_${quality},f_auto/${cloudinaryPublicId}`
+  },
+
+  // Get Cloudinary video thumbnail
+  getCloudinaryThumbnail: (cloudinaryPublicId, width = 800, height = 450) => {
+    if (!cloudinaryPublicId) return null
+    return `https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dvmse886w'}/video/upload/w_${width},h_${height},c_fill/${cloudinaryPublicId}`
+  },
+  
   // Get video manifest URL (DASH)
   getVideoManifest: (videoId) => {
     return `${VIDEO_STREAMING_URL}/${videoId}/${videoId}.mpd`
@@ -2320,12 +2403,12 @@ export default {
   changePassword,
   getUserProfile,
   updateUserProfile,
-  updateProfile,
+  patchUserProfile,
   uploadProfilePicture,
   deleteProfilePicture,
   getUserSessions,
   deleteUserSession,
-  requestAccountDeletion,
+  deleteAccount,
   cancelAccountDeletion,
   deleteAccountImmediate,
   // 2FA APIs
@@ -2335,7 +2418,7 @@ export default {
   disable2FA,
   generateBackupCodes,
   regenerateBackupCodes,
-  emergency2FADisable,
+  emergencyDisable2FA,
   // Student APIs
   listAllCourses,
   getCourseDetailsPublic,
@@ -2364,6 +2447,7 @@ export default {
   getExamResults,
   getCourseRecommendations,
   getUserDashboard,
+  getStudentAnalytics,
   // Instructor APIs
   instructorAPI,
   // Payment APIs

@@ -26,7 +26,10 @@ export default function VideoPlayer({
   onComplete,
   showControls = true,
   autoPlay = false,
-  className = ""
+  className = "",
+  videoSource = "cloudinary", // Add video source prop
+  cloudinaryUrl = null, // Add Cloudinary URL prop
+  videoUrl = null // Allow direct video URL override
 }) {
   const videoRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -40,20 +43,42 @@ export default function VideoPlayer({
   const [error, setError] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
 
-  // Video stream URL
-  const videoUrl = videoAPI.getVideoStream(videoId, quality)
+  // Determine video URL based on source
+  const getVideoUrl = () => {
+    if (videoUrl) return videoUrl // Direct URL override
+    if (videoSource === "cloudinary" && cloudinaryUrl) return cloudinaryUrl // Cloudinary URL
+    if (videoSource === "hls") return videoAPI.getVideoStream(videoId, quality) // HLS stream
+    return null
+  }
+
+  const finalVideoUrl = getVideoUrl()
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video) return
+    if (!video || !finalVideoUrl) return
 
-    // Check if HLS is supported
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native HLS support (Safari)
-      video.src = videoUrl
+    // Reset state
+    setIsLoading(true)
+    setError(null)
+
+    if (videoSource === "cloudinary") {
+      // Handle Cloudinary videos (MP4, WebM, etc.)
+      video.src = finalVideoUrl
+      video.load()
+    } else if (videoSource === "hls") {
+      // Check if HLS is supported
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Native HLS support (Safari)
+        video.src = finalVideoUrl
+        video.load()
+      } else {
+        // Use HLS.js for other browsers
+        loadHLS()
+      }
     } else {
-      // Use HLS.js for other browsers
-      loadHLS()
+      // Default video handling
+      video.src = finalVideoUrl
+      video.load()
     }
 
     // Event listeners
@@ -76,6 +101,8 @@ export default function VideoPlayer({
       setError('Failed to load video')
       setIsLoading(false)
       console.error('Video error:', e)
+      console.error('Video URL:', finalVideoUrl)
+      console.error('Video source:', videoSource)
     }
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata)
@@ -89,7 +116,7 @@ export default function VideoPlayer({
       video.removeEventListener('ended', handleEnded)
       video.removeEventListener('error', handleError)
     }
-  }, [videoUrl, onProgress, onComplete])
+  }, [finalVideoUrl, videoSource, onProgress, onComplete])
 
   const loadHLS = async () => {
     try {
@@ -101,7 +128,7 @@ export default function VideoPlayer({
           lowLatencyMode: true,
         })
         
-        hls.loadSource(videoUrl)
+        hls.loadSource(finalVideoUrl)
         hls.attachMedia(videoRef.current)
         
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -237,9 +264,48 @@ export default function VideoPlayer({
           </div>
           <h3 className="text-lg font-semibold mb-2">Video Unavailable</h3>
           <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>
-            Try Again
-          </Button>
+          
+          {/* Show video link if available */}
+          {finalVideoUrl && (
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Video Link:</h4>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={finalVideoUrl}
+                  readOnly
+                  className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(finalVideoUrl)
+                  }}
+                >
+                  Copy
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(finalVideoUrl, '_blank')}
+                >
+                  Open
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex gap-2 justify-center">
+            <Button onClick={() => window.location.reload()}>
+              Try Again
+            </Button>
+            {finalVideoUrl && (
+              <Button variant="outline" onClick={() => window.open(finalVideoUrl, '_blank')}>
+                Open in New Tab
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
     )
@@ -252,11 +318,25 @@ export default function VideoPlayer({
           {/* Video Element */}
           <video
             ref={videoRef}
-            className="w-full h-auto"
-            poster={videoAPI.getVideoThumbnail(videoId)}
+            className="w-full h-full object-contain"
             preload="metadata"
+            playsInline
+            controls={!showControls}
+            poster={videoSource === "cloudinary" && cloudinaryUrl ? 
+              cloudinaryUrl.replace('/upload/', '/upload/w_800,h_450,c_fill/') : 
+              videoAPI.getVideoThumbnail(videoId)
+            }
           >
-            <source src={videoUrl} type="application/x-mpegURL" />
+            {videoSource === "cloudinary" ? (
+              // Cloudinary videos (MP4, WebM, etc.)
+              <source src={finalVideoUrl} type="video/mp4" />
+            ) : videoSource === "hls" ? (
+              // HLS streams
+              <source src={finalVideoUrl} type="application/x-mpegURL" />
+            ) : (
+              // Default video handling
+              <source src={finalVideoUrl} type="video/mp4" />
+            )}
             Your browser does not support the video tag.
           </video>
 
@@ -347,6 +427,26 @@ export default function VideoPlayer({
                   >
                     <Settings className="h-4 w-4" />
                   </Button>
+
+                  {/* Download */}
+                  {finalVideoUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const link = document.createElement('a')
+                        link.href = finalVideoUrl
+                        link.download = `${title}.mp4`
+                        link.target = '_blank'
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                      }}
+                      className="text-white hover:bg-white hover:bg-opacity-20"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  )}
 
                   {/* Fullscreen */}
                   <Button
