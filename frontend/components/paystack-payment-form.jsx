@@ -7,7 +7,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { 
   CreditCard, 
-  Building2, 
   Smartphone, 
   CheckCircle, 
   XCircle,
@@ -95,56 +94,6 @@ export default function PaystackPaymentForm({
     }
   }
 
-  const handleBankTransfer = async () => {
-    setIsProcessing(true)
-    setError(null)
-    setSuccess(null)
-
-    try {
-      console.log('Initiating bank transfer payment:', {
-        courseId: course.id,
-        amount,
-        currency,
-        paymentType,
-        userData
-      })
-
-
-      // For bank transfer, we'll use Paystack's bank transfer option
-      // Initialize payment with backend
-      const paymentResponse = await paymentAPI.initializePayment({
-        gateway: 'paystack',
-        payment_type: paymentType,
-        course_id: course.id,
-        amount: amount,
-        currency: currency,
-        user_data: userData,
-        payment_method: 'bank_transfer'
-      })
-
-      if (paymentResponse.success) {
-        // Store payment reference for later verification
-        localStorage.setItem('pending_payment_reference', paymentResponse.data.reference)
-        localStorage.setItem('pending_payment_type', paymentType)
-        
-        // Redirect to Paystack payment page (will show bank transfer options)
-        if (paymentResponse.data.payment_url) {
-          window.location.href = paymentResponse.data.payment_url
-        } else {
-          throw new Error('Payment URL not received')
-        }
-      } else {
-        throw new Error(paymentResponse.error?.message || 'Payment initiation failed')
-      }
-
-    } catch (error) {
-      console.error('Bank transfer error:', error)
-      setError(error.message || 'Bank transfer failed. Please try again.')
-      onError(error)
-    } finally {
-      setIsProcessing(false)
-    }
-  }
 
 
   return (
@@ -222,34 +171,6 @@ export default function PaystackPaymentForm({
             </Button>
           </div>
 
-          {/* Bank Transfer */}
-          <div className="border rounded-lg p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Building2 className="h-5 w-5 text-green-600" />
-              <h3 className="font-semibold">Bank Transfer</h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Transfer directly from your bank account to our account
-            </p>
-            <Button 
-              onClick={handleBankTransfer}
-              disabled={isProcessing}
-              variant="outline"
-              className="w-full"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Pay with Bank Transfer
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </>
-              )}
-            </Button>
-          </div>
 
         </div>
 
