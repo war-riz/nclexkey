@@ -2,7 +2,7 @@
 
 // IMPORTANT: Ensure this URL points to your running backend API.
 // If your backend is deployed, update NEXT_PUBLIC_API_BASE_URL in your Vercel project settings
-const API_BASE_URL = "http://localhost:8000";  // Force localhost for testing
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://your-backend-name.onrender.com";
 console.log('API_BASE_URL initialized as:', API_BASE_URL);
 const INSTRUCTOR_API_BASE_URL = `${API_BASE_URL}/api/admin`
 const STUDENT_API_BASE_URL = `${API_BASE_URL}/api/courses`

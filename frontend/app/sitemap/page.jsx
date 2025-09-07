@@ -175,14 +175,6 @@ export default function SitemapPage() {
                       Payment Status
                     </Link>
                   </li>
-                  <li>
-                    <Link 
-                      href="/test" 
-                      className="text-[#4F46E5] hover:text-[#3b34b0] transition-colors"
-                    >
-                      Test Page
-                    </Link>
-                  </li>
                 </ul>
               </div>
             </div>

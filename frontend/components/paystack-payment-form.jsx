@@ -60,34 +60,6 @@ export default function PaystackPaymentForm({
         userData
       })
 
-      // Check if we're in test mode (for development)
-      const isTestMode = false // Disabled for live payments
-
-      if (isTestMode && paymentType === 'student_registration') {
-        // Test mode: simulate successful payment
-        console.log('🧪 Test mode: Simulating successful payment')
-        
-        // Simulate payment processing
-        setTimeout(() => {
-          const testReference = `TEST-${Date.now()}`
-          const testPaymentData = {
-            reference: testReference,
-            amount: amount,
-            currency: currency,
-            status: 'completed'
-          }
-          
-          setSuccess('Payment successful! (Test Mode)')
-          onSuccess(testReference, testPaymentData)
-          
-          // Call onPaymentSuccess callback if provided (for redirect to registration)
-          if (onPaymentSuccess) {
-            onPaymentSuccess(testReference)
-          }
-        }, 2000)
-        
-        return
-      }
 
       // Initialize payment with backend
       const paymentResponse = await paymentAPI.initializePayment({
@@ -137,35 +109,6 @@ export default function PaystackPaymentForm({
         userData
       })
 
-      // Check if we're in test mode (for development)
-      const isTestMode = false // Disabled for live payments
-
-      if (isTestMode && paymentType === 'student_registration') {
-        // Test mode: simulate successful payment
-        console.log('🧪 Test mode: Simulating successful bank transfer')
-        
-        // Simulate payment processing
-        setTimeout(() => {
-          const testReference = `TEST-BANK-${Date.now()}`
-          const testPaymentData = {
-            reference: testReference,
-            amount: amount,
-            currency: currency,
-            status: 'completed',
-            method: 'bank_transfer'
-          }
-          
-          setSuccess('Bank transfer successful! (Test Mode)')
-          onSuccess(testReference, testPaymentData)
-          
-          // Call onPaymentSuccess callback if provided (for redirect to registration)
-          if (onPaymentSuccess) {
-            onPaymentSuccess(testReference)
-          }
-        }, 2000)
-        
-        return
-      }
 
       // For bank transfer, we'll use Paystack's bank transfer option
       // Initialize payment with backend
@@ -203,51 +146,6 @@ export default function PaystackPaymentForm({
     }
   }
 
-  const handleTestPayment = async () => {
-    setIsProcessing(true)
-    setError(null)
-    setSuccess(null)
-
-    try {
-      console.log('🧪 Test mode: Creating test payment for student registration')
-      
-      const response = await fetch('http://localhost:8000/api/payments/test-student-registration/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: amount,
-          currency: currency
-        })
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        setSuccess(`Test payment successful! Reference: ${data.reference}`)
-        onSuccess?.(data.reference, {
-          reference: data.reference,
-          amount: data.amount,
-          currency: data.currency,
-          status: data.status
-        })
-        
-        // Call onPaymentSuccess callback if provided (for redirect to registration)
-        if (onPaymentSuccess) {
-          onPaymentSuccess(data.reference)
-        }
-      } else {
-        throw new Error(data.error?.message || 'Test payment failed')
-      }
-    } catch (error) {
-      console.error('Test payment error:', error)
-      setError(error.message || 'Test payment failed')
-      onError?.(error)
-    } finally {
-      setIsProcessing(false)
-    }
-  }
 
   return (
     <Card className={`w-full max-w-2xl mx-auto ${className}`}>
@@ -353,35 +251,6 @@ export default function PaystackPaymentForm({
             </Button>
           </div>
 
-          {/* Test Payment */}
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <Info className="h-5 w-5 text-yellow-600" />
-              <h3 className="font-semibold">Test Payment</h3>
-              <Badge variant="secondary" className="text-xs">Development Only</Badge>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Use this for testing the payment flow without actual charges
-            </p>
-            <Button 
-              onClick={handleTestPayment}
-              disabled={isProcessing}
-              variant="outline"
-              className="w-full border-yellow-300 text-yellow-700 hover:bg-yellow-50"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing Test Payment...
-                </>
-              ) : (
-                <>
-                  Test Payment ({formatCurrency(amount)})
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </>
-              )}
-            </Button>
-          </div>
         </div>
 
         {/* Security Notice */}
