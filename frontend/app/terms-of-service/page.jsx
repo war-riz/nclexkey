@@ -90,8 +90,8 @@ export default function TermsOfServicePage() {
               <div className="bg-gray-50 p-6 rounded-lg">
                 <p className="text-gray-600">
                   <strong>Email:</strong> legal@nclexkeys.com<br />
-                  <strong>Address:</strong> NCLEX Keys, Lagos, Nigeria<br />
-                  <strong>Phone:</strong> +234-xxx-xxx-xxxx
+                  <strong>Address:</strong> NCLEX Keys, Ikorodu, Lagos, Nigeria<br />
+                  <strong>Phone:</strong> +234 703 736 7480
                 </p>
               </div>
             </div>

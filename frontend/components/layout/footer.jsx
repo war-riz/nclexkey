@@ -93,10 +93,10 @@ export function Footer() {
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-white mb-2">Contact Us</h3>
           <p className="text-sm">
-            123 Virtual School Rd, <br />
-            Online City, Global 12345
+            Ikorodu, Lagos, Nigeria
           </p>
-          <p className="text-sm">Email: info@nclexprep.com</p>
+          <p className="text-sm">Phone: +234 703 736 7480</p>
+          <p className="text-sm">Email: support@nclexkeys.com</p>
         </div>
       </div>
 

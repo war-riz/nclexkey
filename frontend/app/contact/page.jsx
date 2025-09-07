@@ -46,7 +46,7 @@ export default function ContactPage() {
                   <CardTitle>Call Us</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">+234-xxx-xxx-xxxx</p>
+                  <p className="text-gray-600">+234 703 736 7480</p>
                   <p className="text-sm text-gray-500 mt-2">Mon-Fri 9AM-6PM WAT</p>
                 </CardContent>
               </Card>
@@ -59,7 +59,7 @@ export default function ContactPage() {
                   <CardTitle>Visit Us</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-600">Lagos, Nigeria</p>
+                  <p className="text-gray-600">Ikorodu, Lagos, Nigeria</p>
                   <p className="text-sm text-gray-500 mt-2">Virtual consultations available</p>
                 </CardContent>
               </Card>

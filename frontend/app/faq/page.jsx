@@ -97,10 +97,10 @@ export default function FAQPage() {
                 Contact Us
               </a>
               <a
-                href="mailto:support@nclexkeys.com"
+                href="tel:+2347037367480"
                 className="border border-[#4F46E5] text-[#4F46E5] px-8 py-3 rounded-lg hover:bg-[#4F46E5] hover:text-white transition-colors"
               >
-                Email Support
+                Call Us: +234 703 736 7480
               </a>
             </div>
           </div>
