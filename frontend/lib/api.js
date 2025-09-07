@@ -397,6 +397,11 @@ export async function updateUserProfile(updates) {
   })
 }
 
+// 19b. Update User Profile (alias for compatibility)
+export async function updateProfile(updates) {
+  return updateUserProfile(updates)
+}
+
 // 20. Update User Profile (PATCH)
 export async function patchUserProfile(updates) {
   return apiRequest(`/api/auth/users/me/update/`, {

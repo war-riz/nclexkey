@@ -1,0 +1,5 @@
+[33md5140a1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mproduction-ready[m[33m, [m[1;31morigin/production-ready[m[33m)[m Add environment configuration templates and setup guide
+[33m5afc7b7[m Add production deployment script
+[33mbc64a8b[m[33m ([m[1;32mmain[m[33m)[m Security fix: Move sensitive credentials to environment variables
+[33m2ac41d2[m Major system updates: Live payments, video enhancements, messaging system, and bug fixes
+[33m57b354b[m Fix settings button and courses display: Add settings tab, refresh courses functionality, and better debugging
