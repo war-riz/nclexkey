@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 export function Header() {
   return (
     <header className="flex items-center justify-between h-20 px-4 md:px-6 bg-white/80 backdrop-blur-sm shadow-sm fixed w-full z-50 top-0">
-      <Link href="#" className="flex items-center gap-2 text-xl font-bold text-gray-800">
+      <Link href="/" className="flex items-center gap-2 text-xl font-bold text-gray-800">
         <Stethoscope className="h-8 w-8 text-[#4F46E5]" />
         NCLEX KEYS
       </Link>
@@ -18,15 +18,13 @@ export function Header() {
         <Link href="/about" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
           About
         </Link>
-        <Link href="#our-courses" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
+        <Link href="/programs" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
           Programs
         </Link>
-        <Link href="#our-services" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
-          {" "}
-          {/* Added Services link */}
+        <Link href="/services" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
           Services
         </Link>
-        <Link href="#contact-us" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
+        <Link href="/contact" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
           Contact
         </Link>
       </nav>
@@ -57,15 +55,13 @@ export function Header() {
             <Link href="/about" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
               About
             </Link>
-            <Link href="#our-courses" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
+            <Link href="/programs" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
               Programs
             </Link>
-            <Link href="#our-services" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
-              {" "}
-              {/* Added Services link */}
+            <Link href="/services" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
               Services
             </Link>
-            <Link href="#contact-us" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
+            <Link href="/contact" className="text-gray-600 hover:text-[#4F46E5] transition-colors">
               Contact
             </Link>
             <Button

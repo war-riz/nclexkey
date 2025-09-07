@@ -6,9 +6,9 @@ export function Footer() {
     <footer className="bg-gray-800 text-gray-300 py-12 md:py-16">
       <div className="container mx-auto px-4 md:px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
         <div className="space-y-4">
-          <Link href="#" className="flex items-center gap-2 text-2xl font-bold text-white">
-            <Stethoscope className="h-8 w-8 text-white" /> {/* Changed icon to Stethoscope */}
-            NCLEX KEYS {/* Changed text to NCLEX KEYS */}
+          <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-white">
+            <Stethoscope className="h-8 w-8 text-white" />
+            NCLEX KEYS
           </Link>
           <p className="text-sm leading-relaxed">
             Your trusted partner for NCLEX success. Providing expert tutoring and comprehensive resources.
@@ -37,27 +37,27 @@ export function Footer() {
           <h3 className="text-lg font-semibold text-white mb-2">Quick Links</h3>
           <ul className="space-y-2 text-sm">
             <li>
-              <Link href="#" className="hover:text-white transition-colors">
+              <Link href="/about" className="hover:text-white transition-colors">
                 About Us
               </Link>
             </li>
             <li>
-              <Link href="#" className="hover:text-white transition-colors">
-                Our Courses
+              <Link href="/programs" className="hover:text-white transition-colors">
+                Our Programs
               </Link>
             </li>
             <li>
-              <Link href="#" className="hover:text-white transition-colors">
-                Our Tutors
+              <Link href="/services" className="hover:text-white transition-colors">
+                Our Services
               </Link>
             </li>
             <li>
-              <Link href="#" className="hover:text-white transition-colors">
-                Blog
+              <Link href="/courses" className="hover:text-white transition-colors">
+                All Courses
               </Link>
             </li>
             <li>
-              <Link href="#" className="hover:text-white transition-colors">
+              <Link href="/contact" className="hover:text-white transition-colors">
                 Contact
               </Link>
             </li>
@@ -68,22 +68,22 @@ export function Footer() {
           <h3 className="text-lg font-semibold text-white mb-2">Support</h3>
           <ul className="space-y-2 text-sm">
             <li>
-              <Link href="#" className="hover:text-white transition-colors">
+              <Link href="/faq" className="hover:text-white transition-colors">
                 FAQ
               </Link>
             </li>
             <li>
-              <Link href="#" className="hover:text-white transition-colors">
+              <Link href="/privacy-policy" className="hover:text-white transition-colors">
                 Privacy Policy
               </Link>
             </li>
             <li>
-              <Link href="#" className="hover:text-white transition-colors">
+              <Link href="/terms-of-service" className="hover:text-white transition-colors">
                 Terms of Service
               </Link>
             </li>
             <li>
-              <Link href="#" className="hover:text-white transition-colors">
+              <Link href="/sitemap" className="hover:text-white transition-colors">
                 Sitemap
               </Link>
             </li>
