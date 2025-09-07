@@ -180,7 +180,7 @@ export default function RegisterClientPage() {
       if (result.success) {
         toast({
           title: "Registration Successful! 🎉",
-          description: "Your account has been created and payment confirmed. Please check your email to verify your account.",
+          description: "Your account has been created and payment confirmed. You can now login to access your dashboard.",
           variant: "default",
         })
         router.push("/login")

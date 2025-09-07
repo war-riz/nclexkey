@@ -81,7 +81,7 @@ export const AuthProvider = ({ children }) => {
       if (result.success) {
         toast({
           title: "Registration Successful",
-          description: "Please check your email to verify your account.",
+          description: "Your account has been created successfully. You can now login.",
         })
         return { success: true }
       } else {
