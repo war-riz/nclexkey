@@ -427,6 +427,9 @@ export default function RegisterClientPage() {
                 <p className="text-xs text-gray-500">
                   {selectedProgram ? `${selectedProgram.per} for full platform access` : 'One-time payment for full platform access'}
                 </p>
+                <p className="text-xs text-blue-600 mt-2">
+                  💱 International cards will be converted to NGN at current exchange rates
+                </p>
               </div>
               
               {!paymentSuccess ? (

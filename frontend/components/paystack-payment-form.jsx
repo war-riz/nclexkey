@@ -150,7 +150,7 @@ export default function PaystackPaymentForm({
               <h3 className="font-semibold">Paystack Payment</h3>
             </div>
             <p className="text-sm text-gray-600 mb-4">
-              Pay with credit/debit cards, USSD, or mobile money through Paystack
+              Pay with Nigerian cards, USSD, bank transfer, or mobile money through Paystack (NGN only)
             </p>
             <Button 
               onClick={handlePaystackPayment}
@@ -174,13 +174,24 @@ export default function PaystackPaymentForm({
 
         </div>
 
+        {/* Currency Notice */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div className="text-sm text-blue-800">
+              <p className="font-medium mb-1">Payment in Nigerian Naira (NGN)</p>
+              <p>All payments are processed in Nigerian Naira. International cards will be automatically converted to NGN at current exchange rates.</p>
+            </div>
+          </div>
+        </div>
+
         {/* Security Notice */}
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <Shield className="h-5 w-5 text-gray-500 mt-0.5" />
             <div className="text-sm text-gray-600">
               <p className="font-medium mb-1">Secure Payment</p>
-              <p>All payments are processed securely. Your payment details are never stored on our servers.</p>
+              <p>All payments are processed securely through Paystack. Your payment details are never stored on our servers.</p>
             </div>
           </div>
         </div>
