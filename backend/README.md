@@ -78,8 +78,8 @@ nclex_virtual_school/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/war-riz/nclex_virtual_school.git
-   cd nclex_virtual_school
+   git clone https://github.com/war-riz/nclexkey-backend.git
+   cd nclexkey-backend
    ```
 
 2. **Create and activate virtual environment**
@@ -318,11 +318,14 @@ Please ensure your code follows the project's coding standards and includes appr
 
 For questions or support, please contact:
 - **Developer**: [war_riz](https://github.com/war-riz)
-- **Issues**: [GitHub Issues](https://github.com/war-riz/nclex_virtual_school/issues)
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## References
+
+You can find the frontend for this project [GitHub Issues](https://github.com/war-riz/nclexkey-frontend).
 
 ---
 
