@@ -1,133 +1,154 @@
-# NCLEX Virtual School - Django Backend API
+# NCLEX Virtual School – Backend
 
-A comprehensive backend API for the NCLEX Virtual School platform, built with Django and Django REST Framework. This API powers a Next.js frontend and provides secure authentication, course management, messaging, payments, and administrative features.
+This is the **Django REST API backend** for the NCLEX Virtual School platform. It provides secure authentication, course management, messaging, payment integration, and administrative features for the frontend application.
+
+---
 
 ## Table of Contents
 
-- [Features](#features)
-- [Project Structure](#project-structure)
-- [Quick Start](#quick-start)
-- [Environment Configuration](#environment-configuration)
-- [API Documentation](#api-documentation)
-- [Authentication](#authentication)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
+* [Features](#features)
+* [Project Structure](#project-structure)
+* [Quick Start](#quick-start)
+* [Environment Configuration](#environment-configuration)
+* [API Documentation](#api-documentation)
+* [Authentication](#authentication)
+* [Testing](#testing)
+* [Development](#development)
+* [Contributing](#contributing)
+* [License](#license)
+
+---
 
 ## Features
 
 ### 🔐 Authentication & Security
-- **JWT Authentication**: Access and refresh token system
-- **Email Verification**: Secure account activation
-- **Password Management**: Reset functionality via email
-- **Two-Factor Authentication**: TOTP-based 2FA
-- **Security Features**: Login alerts, device detection, account lockout
-- **Account Management**: Immediate or scheduled deletion
+
+* JWT access and refresh tokens
+* Email verification
+* Password reset functionality
+* TOTP-based 2FA
+* Login alerts and device tracking
+* Account lockout and deletion scheduling
 
 ### 👤 User Management
-- **Profile Management**: View and update user profiles
-- **Session Tracking**: Device info and timestamp tracking
-- **Account Control**: Deletion scheduling and cancellation
+
+* User profile CRUD
+* Session tracking
+* Account deletion and recovery
 
 ### 📚 Course Management
-- **Admin Features**: Full CRUD operations for courses
-- **Student Features**: Browse available courses and track progress
-- **Progress Tracking**: Course completion monitoring
-- **Media Support**: Video uploads and URL management
 
-### 💬 Real-time Messaging
-- **Chat System**: Direct user-to-user messaging
-- **Conversation Management**: Active chat tracking
-- **Message History**: Timestamped message records
+* Full CRUD for courses (admin)
+* Student course browsing and progress tracking
+* Media support for video lessons and URLs
+
+### 💬 Messaging
+
+* Direct messaging between users
+* Conversation tracking
+* Message history with timestamps
 
 ### 💳 Payment Integration
-- **Payment Processing**: Secure payment initiation
-- **Webhook Support**: Automated callback processing
-- **Enrollment Tracking**: Payment and course enrollment status
+
+* Secure payment initiation
+* Webhook processing for automatic updates
+* Enrollment and payment tracking
 
 ### 📧 Email System
-- **Template Engine**: HTML email templates
-- **Media Integration**: Cloudinary-hosted assets
-- **Timezone Support**: Timezone-aware timestamps with pytz
+
+* HTML email templates
+* Cloudinary-hosted media support
+* Timezone-aware timestamps
+
+---
 
 ## Project Structure
 
 ```
-nclex_virtual_school/
-├── auth/                    # Authentication & JWT management
-├── users/                   # User profiles & session management
-├── courses/                 # Course CRUD & progress tracking
-├── messaging/               # User messaging system
-├── payments/                # Payment gateway integration
-├── admin/                   # Administrative dashboard
-├── templates/emails/        # Email template collection
-├── config/                  # Django settings & configuration
-├── requirements.txt         # Python dependencies
-├── manage.py               # Django management script
-└── README.md               # This file
+backend/
+├── auth/               # Authentication and JWT management
+├── users/              # User profiles and session tracking
+├── courses/            # Course CRUD and progress tracking
+├── messaging/          # Messaging system
+├── payments/           # Payment gateway integration
+├── admin/              # Admin dashboard functionality
+├── templates/emails/   # Email templates
+├── config/             # Django settings and configurations
+├── requirements.txt    # Python dependencies
+└── manage.py           # Django CLI commands
 ```
+
+---
 
 ## Quick Start
 
 ### Prerequisites
-- Python 3.8+
-- PostgreSQL
-- Git
+
+* Python 3.8+
+* PostgreSQL
+* Git
 
 ### Installation
 
 1. **Clone the repository**
-   ```bash
-   git clone https://github.com/war-riz/nclexkey-backend.git
-   cd nclexkey-backend
-   ```
+
+```bash
+git clone https://github.com/war-riz/nclexkey.git
+cd nclexkey/backend
+```
 
 2. **Create and activate virtual environment**
-   ```bash
-   python -m venv venv
-   
-   # On macOS/Linux:
-   source venv/bin/activate
-   
-   # On Windows:
-   venv\Scripts\activate
-   ```
+
+```bash
+python -m venv venv
+# macOS/Linux
+source venv/bin/activate
+# Windows
+venv\Scripts\activate
+```
 
 3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+
+```bash
+pip install -r requirements.txt
+```
 
 4. **Configure environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration (see Environment Configuration section)
-   ```
+
+```bash
+cp .env.example .env
+# Edit .env with your credentials (see Environment Configuration)
+```
 
 5. **Run database migrations**
-   ```bash
-   python manage.py migrate
-   ```
+
+```bash
+python manage.py migrate
+```
 
 6. **Create a superuser (optional)**
-   ```bash
-   python manage.py createsuperuser
-   ```
 
-7. **Start the development server**
-   ```bash
-   python manage.py runserver
-   ```
+```bash
+python manage.py createsuperuser
+```
 
-The API will be available at `http://localhost:8000/`
+7. **Start development server**
+
+```bash
+python manage.py runserver
+```
+
+API available at `http://localhost:8000/`
+
+---
 
 ## Environment Configuration
 
-Create a `.env` file in the project root with the following variables:
+Create a `.env` file in `backend/`:
 
 ```env
 # Django Settings
-SECRET_KEY=your-secret-key-here
+SECRET_KEY=your-secret-key
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 
@@ -137,12 +158,12 @@ DATABASE_URL=postgres://username:password@localhost:5432/database_name
 # Frontend Configuration
 FRONTEND_URL=http://localhost:3000
 
-# Cloudinary Configuration
+# Cloudinary
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
 
-# Email Configuration
+# Email
 DEFAULT_FROM_EMAIL=NCLEX Virtual School <noreply@nclexschool.com>
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
 EMAIL_HOST=smtp.gmail.com
@@ -151,124 +172,93 @@ EMAIL_USE_TLS=True
 EMAIL_HOST_USER=your-email@gmail.com
 EMAIL_HOST_PASSWORD=your-app-password
 
-# Payment Gateway (Optional)
-PAYSTACK_SECRET_KEY=your-paystack-secret-key
-FLUTTERWAVE_SECRET_KEY=your-flutterwave-secret-key
+# Payment Gateway
+PAYSTACK_SECRET_KEY=your-paystack-key
+FLUTTERWAVE_SECRET_KEY=your-flutterwave-key
 ```
+
+---
 
 ## API Documentation
 
-### Authentication Endpoints
-- `POST /api/auth/register/` - User registration
-- `POST /api/auth/login/` - User login
-- `POST /api/auth/logout/` - User logout
-- `POST /api/auth/refresh/` - Refresh access token
-- `POST /api/auth/verify-email/` - Email verification
-- `POST /api/auth/password-reset/` - Password reset request
-- `POST /api/auth/password-reset-confirm/` - Password reset confirmation
+**Authentication**
 
-### User Management
-- `GET /api/users/profile/` - Get user profile
-- `PUT /api/users/profile/` - Update user profile
-- `GET /api/users/sessions/` - List active sessions
-- `DELETE /api/users/account/` - Delete account
+* `POST /api/auth/register/` – Register user
+* `POST /api/auth/login/` – Login
+* `POST /api/auth/logout/` – Logout
+* `POST /api/auth/refresh/` – Refresh JWT
+* `POST /api/auth/verify-email/` – Verify email
+* `POST /api/auth/password-reset/` – Request password reset
+* `POST /api/auth/password-reset-confirm/` – Confirm password reset
 
-### Course Management
-- `GET /api/courses/` - List all courses
-- `GET /api/courses/{id}/` - Get course details
-- `POST /api/courses/` - Create course (admin)
-- `PUT /api/courses/{id}/` - Update course (admin)
-- `DELETE /api/courses/{id}/` - Delete course (admin)
+**User Management**
 
-### Messaging
-- `GET /api/messaging/conversations/` - List conversations
-- `POST /api/messaging/send/` - Send message
-- `GET /api/messaging/messages/{conversation_id}/` - Get messages
+* `GET /api/users/profile/` – Get profile
+* `PUT /api/users/profile/` – Update profile
+* `GET /api/users/sessions/` – List active sessions
+* `DELETE /api/users/account/` – Delete account
 
-### Payments
-- `POST /api/payments/initiate/` - Initiate payment
-- `POST /api/payments/webhook/` - Payment webhook
-- `GET /api/payments/status/{transaction_id}/` - Payment status
+**Courses**
+
+* `GET /api/courses/` – List courses
+* `GET /api/courses/{id}/` – Get course details
+* `POST /api/courses/` – Create course (admin)
+* `PUT /api/courses/{id}/` – Update course (admin)
+* `DELETE /api/courses/{id}/` – Delete course (admin)
+
+**Messaging**
+
+* `GET /api/messaging/conversations/` – List conversations
+* `POST /api/messaging/send/` – Send message
+* `GET /api/messaging/messages/{conversation_id}/` – Get messages
+
+**Payments**
+
+* `POST /api/payments/initiate/` – Start payment
+* `POST /api/payments/webhook/` – Webhook callback
+* `GET /api/payments/status/{transaction_id}/` – Payment status
+
+---
 
 ## Authentication
 
-The API uses JWT (JSON Web Tokens) for authentication. Here's how to authenticate requests:
+The backend uses **JWT**. Example integration:
 
-### Frontend Integration Example
+```python
+# Login view returns
+{
+  "access_token": "...",
+  "refresh_token": "..."
+}
 
-```javascript
-// Login and store tokens
-const login = async (email, password) => {
-  try {
-    const response = await fetch('/api/auth/login/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json();
-    
-    if (response.ok) {
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('refresh_token', data.refresh_token);
-      return data;
-    }
-    
-    throw new Error(data.message || 'Login failed');
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
-};
-
-// Make authenticated requests
-const makeAuthenticatedRequest = async (url, options = {}) => {
-  const token = localStorage.getItem('access_token');
-  
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...options.headers,
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (response.status === 401) {
-    // Token expired, refresh it
-    await refreshToken();
-    return makeAuthenticatedRequest(url, options);
-  }
-
-  return response;
-};
+# Use in frontend
+Authorization: Bearer <access_token>
 ```
 
-## Testing
+---
 
-Run the test suite:
+## Testing
 
 ```bash
 # Run all tests
 python manage.py test
 
-# Run specific app tests
+# Run tests for specific app
 python manage.py test auth
-python manage.py test users
 python manage.py test courses
 
-# Run with coverage
+# With coverage
 pip install coverage
 coverage run --source='.' manage.py test
 coverage report
 ```
 
+---
+
 ## Development
 
-### Code Style
-This project follows PEP 8 guidelines. Use `flake8` and `black` for code formatting:
+* Follows **PEP 8**
+* Use `flake8` and `black` for linting and formatting
 
 ```bash
 pip install flake8 black
@@ -276,57 +266,30 @@ black .
 flake8 .
 ```
 
-### Database Management
+* Database management:
+
 ```bash
-# Create new migrations
 python manage.py makemigrations
-
-# Apply migrations
 python manage.py migrate
-
-# Reset database (development only)
-python manage.py flush
+python manage.py flush  # reset DB (dev only)
 ```
-
-## Roadmap
-
-### Upcoming Features
-- [ ] WebSocket support for real-time messaging (Django Channels)
-- [ ] User analytics dashboard for administrators
-- [ ] Lesson-level progress tracking
-- [ ] Push notifications (email and PWA)
-- [ ] API rate limiting
-- [ ] Comprehensive API documentation with Swagger/OpenAPI
-
-### Performance Improvements
-- [ ] Database query optimization
-- [ ] Caching implementation (Redis)
-- [ ] File upload optimization
-- [ ] API response compression
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-Please ensure your code follows the project's coding standards and includes appropriate tests.
-
-## Support
-
-For questions or support, please contact:
-- **Developer**: [war_riz](https://github.com/war-riz)
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## References
-
-You can find the frontend for this project [GitHub Issues](https://github.com/war-riz/nclexkey-frontend).
 
 ---
 
-**NCLEX Virtual School** - Empowering nursing students with comprehensive digital learning solutions.
+## Contributing
+
+1. Fork repository
+2. Create a branch: `git checkout -b feature/my-feature`
+3. Commit changes: `git commit -m "Add feature"`
+4. Push branch: `git push origin feature/my-feature`
+5. Open Pull Request
+
+---
+
+## License
+
+MIT License – see [LICENSE](LICENSE)
+
+---
+
+**NCLEX Virtual School Backend** – Secure, scalable API for a comprehensive digital nursing school platform.
